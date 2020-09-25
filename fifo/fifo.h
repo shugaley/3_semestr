@@ -13,4 +13,4 @@ void WriteFifo(const char* pathFile_Input);
 void ReadFifo();
 
 
-#endif //FIFO_FIFO_H
+#endif //FIFO_FIFO_GENERAL_H

@@ -10,6 +10,7 @@
 #include <stdbool.h>
 
 #include <sys/stat.h>
+#include <sys/types.h>
 
 #include <fcntl.h>
 #include <unistd.h>
@@ -17,7 +18,8 @@
 
 //General funcs {
 
-char* MakePathFifo(const pid_t pid);
+char* MakePathFifo (const pid_t pid);
+bool  IsCanReadFile(int fd_read);
 
 //Shell funcs {
 

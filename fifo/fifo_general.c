@@ -3,6 +3,7 @@
 
 static const char   PATH_BASE_FIFO[] = "fifo_"; //fifo_<pid>
 static const size_t SIZE_STR_INT32   = 7;
+static const time_t TIME_WAITING     = 1;
 
 //=============================================================================
 //General func {
@@ -18,6 +19,25 @@ char* MakePathFifo(const pid_t pid)
              "%d", pid);
 
     return pathFifo;
+}
+
+bool IsCanReadFile(int fd_read)
+{
+    fd_set readfds;
+
+    int n = fd_read + 1;
+    FD_ZERO(&readfds);
+    FD_SET(fd_read, &readfds);
+
+    struct timeval tv_Fifo;
+    tv_Fifo.tv_sec  = TIME_WAITING;
+    tv_Fifo.tv_usec = 0;
+
+    int ret_select = select(n, &readfds, NULL, NULL, &tv_Fifo);
+    if(ret_select <= 0)
+        return false;
+    else
+        return true;
 }
 
 //Shell funcs {

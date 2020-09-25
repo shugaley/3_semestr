@@ -1,8 +1,6 @@
 
 #include "fifo.h"
 
-static const time_t TIME_WAITING = 1;
-
 void WriteFifo_Pid(const pid_t pid, const char* pathFile_FifoPid);
 
 //=============================================================================
@@ -14,18 +12,19 @@ void ReadFifo()
     char* pathFifo = MakePathFifo(pid_FifoReader);
     printf("pathFifo(reader): %s\n", pathFifo); //TODO FOR DEBUG
 
-    Mkfifo(pathFifo, MKFIFO_MODE_DEFAULT,   "Error mkfifo fifo");
+    Mkfifo(pathFifo, MKFIFO_MODE_DEFAULT, "Error mkfifo fifo");
     int fd_Fifo = Open(pathFifo, O_RDONLY | O_NONBLOCK,
                        "Error open pathFifo(reader)");
 
     WriteFifo_Pid(pid_FifoReader, PATH_FILE_FIFO_TRANSFER_PID);
 
-    struct timeval tv_Fifo;
-    tv_Fifo.tv_sec  = TIME_WAITING;
-    tv_Fifo.tv_usec = 0;
+    printf("[eq\n");
+    if(!IsCanReadFile(fd_Fifo)) {
+        perror("Error can't connect (time out) (reader)");
+        exit(EXIT_FAILURE);
+    }
 
     Fcntl(fd_Fifo, F_SETFL, O_RDONLY, "Error fcntl fifo(reader)");
-
 }
 
 

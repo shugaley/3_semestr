@@ -13,6 +13,12 @@ void WriteFifo(const char* pathFile_Input)
 
     char* pathFifo = MakePathFifo(pid_FifoReader);
     printf("pathFifo(writer): %s\n", pathFifo); //TODO FOR DEBUG
+
+    printf("[eq\n");
+    int fd_Fifo = Open (pathFifo, O_WRONLY | O_NONBLOCK,
+                        "Error open pathFifo(writer)\n");
+
+    Fcntl(fd_Fifo, F_SETFL, O_WRONLY, "Error fcntrl(pathFifo)(writer)\n");
 }
 
 
