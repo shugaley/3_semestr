@@ -91,7 +91,7 @@ ssize_t Read(int fd, void *buf, size_t nbytes, const char* strError)
 {
     ssize_t ret_write = read(fd, buf, nbytes);
     if(ret_write <= 0) {
-        perror(strError);               //TODO обработать случай с == 0 не в оболочке
+        perror(strError);
         exit(EXIT_FAILURE);
     }
 
@@ -102,7 +102,7 @@ ssize_t Read(int fd, void *buf, size_t nbytes, const char* strError)
 ssize_t Write(int fd, const void *buf, size_t n, const char* strError)
 {
     ssize_t ret_write = write(fd, buf, n);
-    if(ret_write <= 0) {                //TODO обработать случай с == 0 не в оболочке
+    if(ret_write <= 0) {
         perror(strError);
         exit(EXIT_FAILURE);
     }
