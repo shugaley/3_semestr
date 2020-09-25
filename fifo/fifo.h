@@ -4,7 +4,6 @@
 
 #include "fifo_general.h"
 
-#include "assert.h"
 
 static const char PATH_FILE_FIFO_TRANSFER_PID[] = "/tmp/FifoTransferPid";
 static const mode_t MKFIFO_MODE_DEFAULT = 0666;

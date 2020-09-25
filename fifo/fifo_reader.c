@@ -10,7 +10,6 @@ void ReadFifo()
     pid_t pid_FifoReader = getpid();
 
     char* pathFifo = MakePathFifo(pid_FifoReader);
-    printf("pathFifo(reader): %s\n", pathFifo); //TODO FOR DEBUG
 
     Mkfifo(pathFifo, MKFIFO_MODE_DEFAULT, "Error mkfifo fifo");
     int fd_Fifo = Open(pathFifo, O_RDONLY | O_NONBLOCK,
@@ -18,13 +17,24 @@ void ReadFifo()
 
     WriteFifo_Pid(pid_FifoReader, PATH_FILE_FIFO_TRANSFER_PID);
 
-    printf("[eq\n");
     if(!IsCanReadFile(fd_Fifo)) {
         perror("Error can't connect (time out) (reader)");
         exit(EXIT_FAILURE);
     }
 
     Fcntl(fd_Fifo, F_SETFL, O_RDONLY, "Error fcntl fifo(reader)");
+
+    int ret_splice = 0;
+    while ((ret_splice = splice(fd_Fifo, NULL, STDOUT_FILENO,
+                                NULL, PIPE_BUF, SPLICE_F_MOVE))) {
+        if(ret_splice < 0) {
+            perror("Error splice(reader)\n");
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    close(fd_Fifo);
+    unlink(pathFifo);
 }
 
 

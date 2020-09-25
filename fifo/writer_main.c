@@ -11,7 +11,6 @@ char* ScanKeys(const int argc, const char** argv);
 int main(const int argc, const char** argv)
 {
     char* pathFile_Input = ScanKeys(argc, argv);
-    //printf("Input: %s\n", pathFile_Input); //TODO FOR DEBUG
 
     WriteFifo(pathFile_Input);
 

@@ -12,13 +12,26 @@ void WriteFifo(const char* pathFile_Input)
     pid_t pid_FifoReader = ReadFifo_Pid(PATH_FILE_FIFO_TRANSFER_PID);
 
     char* pathFifo = MakePathFifo(pid_FifoReader);
-    printf("pathFifo(writer): %s\n", pathFifo); //TODO FOR DEBUG
 
-    printf("[eq\n");
-    int fd_Fifo = Open (pathFifo, O_WRONLY | O_NONBLOCK,
-                        "Error open pathFifo(writer)\n");
-
+    int fd_Fifo = Open(pathFifo, O_WRONLY | O_NONBLOCK,
+                       "Error open pathFifo(writer)\n");
     Fcntl(fd_Fifo, F_SETFL, O_WRONLY, "Error fcntrl(pathFifo)(writer)\n");
+
+    int fd_Input = Open(pathFile_Input, O_RDONLY, "Error open FileInput\n");
+
+    int ret_splice = 0;
+    while((ret_splice = splice(fd_Input, NULL, fd_Fifo,
+                            NULL, PIPE_BUF, SPLICE_F_MOVE))) {
+        if(ret_splice < 0) {
+            perror("Error splice(writer)\n");
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    close(fd_Fifo);
+    unlink(pathFifo);
+
+    close(fd_Input);
 }
 
 

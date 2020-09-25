@@ -40,6 +40,25 @@ bool IsCanReadFile(int fd_read)
         return true;
 }
 
+size_t CountSizeFile(const char* pathFile)
+{
+    assert(pathFile);
+
+    struct stat stat_File = {};
+
+    int ret_stat = stat(pathFile, &stat_File);
+    if(ret_stat == -1) {
+        const char strErrorBase[] = "Error count size file ";
+        char strError[PATH_MAX + sizeof(strErrorBase)] = "";
+        strcat(strError, pathFile);
+        perror(strError);
+        exit(EXIT_FAILURE);
+    }
+
+    size_t sizeFile = stat_File.st_size;
+    return sizeFile;
+}
+
 //Shell funcs {
 
 int Mkfifo(const char* path, mode_t mode, const char* strError)

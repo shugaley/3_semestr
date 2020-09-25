@@ -7,4 +7,4 @@ set(CMAKE_C_STANDARD 11)
 add_executable(fifo_writer writer_main.c
                       fifo.h fifo_general.c fifo_writer.c)
 add_executable(fifo_reader reader_main.c
-                      fifo.h fifo_general.c fifo_reader.c )
+                      fifo.h fifo_general.c fifo_reader.c)

@@ -1,8 +1,8 @@
 
 #include "fifo.h"
 
-int main() {
-
+int main()
+{
     ReadFifo();
 
     return 0;

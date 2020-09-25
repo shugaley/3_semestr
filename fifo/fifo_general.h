@@ -12,14 +12,17 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
+#include <limits.h>
 #include <fcntl.h>
 #include <unistd.h>
 
+#include "assert.h"
 
 //General funcs {
 
 char* MakePathFifo (const pid_t pid);
 bool  IsCanReadFile(int fd_read);
+size_t CountSizeFile(const char* pathFile);
 
 //Shell funcs {
 
