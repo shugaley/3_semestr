@@ -25,6 +25,7 @@ void ReadFifo()
     tv_Fifo.tv_usec = 0;
 
     Fcntl(fd_Fifo, F_SETFL, O_RDONLY, "Error fcntl fifo(reader)");
+
 }
 
 
