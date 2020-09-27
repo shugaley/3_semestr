@@ -3,20 +3,20 @@
 #define FIFO_FIFO_GENERAL_H
 
 #define _GNU_SOURCE
+#include <assert.h>
 #include <errno.h>
+#include <limits.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdbool.h>
 
 #include <sys/stat.h>
 #include <sys/types.h>
 
-#include <limits.h>
 #include <fcntl.h>
 #include <unistd.h>
 
-#include "assert.h"
 
 //General funcs {
 
