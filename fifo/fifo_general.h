@@ -22,7 +22,7 @@
 
 char* MakePathFifo (const pid_t pid);
 bool  IsCanReadFile(int fd_read);
-size_t CountSizeFile(const char* pathFile);
+size_t CountSizeFile(const char* path);
 
 //Shell funcs {
 

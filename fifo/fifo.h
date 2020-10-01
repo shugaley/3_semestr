@@ -8,7 +8,7 @@
 static const char PATH_FILE_FIFO_TRANSFER_PID[] = "/tmp/FifoTransferPid";
 static const mode_t MKFIFO_MODE_DEFAULT = 0666;
 
-void WriteFifo(const char* pathFile_Input);
+void WriteFifo(const char* pathInput);
 void ReadFifo();
 
 

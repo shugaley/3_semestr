@@ -42,11 +42,11 @@ void WriteFifo_Pid(const pid_t pid, const char* pathFile_FifoPid)
 {
     assert(pathFile_FifoPid);
 
-    Mkfifo (pathFile_FifoPid, MKFIFO_MODE_DEFAULT,
-            "Error mkfifo FifoPid(reader)");
+    Mkfifo(pathFile_FifoPid, MKFIFO_MODE_DEFAULT,
+           "Error mkfifo FifoPid(reader)");
 
-    int fd_FifoPid = Open (pathFile_FifoPid, O_WRONLY,
-                           "Error open FifoPid(reader)");
+    int fd_FifoPid = Open(pathFile_FifoPid, O_WRONLY,
+                          "Error open FifoPid(reader)");
 
     Write(fd_FifoPid, &pid, sizeof(pid_t), "Error write pid");
 }

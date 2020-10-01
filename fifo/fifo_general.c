@@ -26,8 +26,8 @@ bool IsCanReadFile(int fd_read)
     fd_set readfds;
 
     int n = fd_read + 1;
-    FD_ZERO(&readfds);
-    FD_SET(fd_read, &readfds);
+    FD_ZERO(         &readfds);
+    FD_SET (fd_read, &readfds);
 
     struct timeval tv_Fifo;
     tv_Fifo.tv_sec  = TIME_WAITING;
@@ -40,17 +40,17 @@ bool IsCanReadFile(int fd_read)
         return true;
 }
 
-size_t CountSizeFile(const char* pathFile)
+size_t CountSizeFile(const char* path)
 {
-    assert(pathFile);
+    assert(path);
 
     struct stat stat_File = {};
 
-    int ret_stat = stat(pathFile, &stat_File);
-    if(ret_stat == -1) {
+    int ret_stat = stat(path, &stat_File);
+    if (ret_stat == -1) {
         const char strErrorBase[] = "Error count size file ";
         char strError[PATH_MAX + sizeof(strErrorBase)] = "";
-        strcat(strError, pathFile);
+        strcat(strError, path);
         perror(strError);
         exit(EXIT_FAILURE);
     }
@@ -89,13 +89,13 @@ int Open(const char* path, int flag, const char* strError)
 
 ssize_t Read(int fd, void *buf, size_t nbytes, const char* strError)
 {
-    ssize_t ret_write = read(fd, buf, nbytes);
-    if(ret_write <= 0) {
+    ssize_t ret_read = read(fd, buf, nbytes);
+    if(ret_read <= 0) {
         perror(strError);
         exit(EXIT_FAILURE);
     }
 
-    return ret_write;
+    return ret_read;
 }
 
 
