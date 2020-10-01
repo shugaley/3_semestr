@@ -50,6 +50,7 @@ size_t CountSizeFile(const char* path)
     if (ret_stat == -1) {
         const char strErrorBase[] = "Error count size file ";
         char strError[PATH_MAX + sizeof(strErrorBase)] = "";
+        strcat(strError, strErrorBase);
         strcat(strError, path);
         perror(strError);
         exit(EXIT_FAILURE);
