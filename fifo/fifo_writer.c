@@ -28,9 +28,6 @@ void WriteFifo(const char* pathInput)
         }
     }
 
-    close(fd_Fifo);
-    unlink(pathFifo);
-
     close(fd_Input);
 }
 
