@@ -17,7 +17,7 @@ void ReadFifo()
 
     WriteFifo_Pid(pid_FifoReader, PATH_FILE_FIFO_TRANSFER_PID);
 
-    if(!IsCanReadFile(fd_Fifo)) {
+    if (!IsCanReadFile(fd_Fifo)) {
         perror("Error can't connect (time out) (reader)");
         exit(EXIT_FAILURE);
     }
@@ -27,7 +27,7 @@ void ReadFifo()
     int ret_splice = 0;
     while ((ret_splice = splice(fd_Fifo, NULL, STDOUT_FILENO,
                                 NULL, PIPE_BUF, SPLICE_F_MOVE))) {
-        if(ret_splice < 0) {
+        if (ret_splice < 0) {
             perror("Error splice(reader)\n");
             exit(EXIT_FAILURE);
         }

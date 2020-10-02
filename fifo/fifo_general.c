@@ -1,7 +1,7 @@
 
 #include "fifo_general.h"
 
-static const char   PATH_BASE_FIFO[] = "fifo_"; //fifo_<pid>
+static const char   PATH_BASE_FIFO[] = "/tmp/fifo_"; //fifo_<pid>
 static const size_t SIZE_STR_INT32   = 7;
 static const time_t TIME_WAITING     = 1;
 
@@ -15,8 +15,7 @@ char* MakePathFifo(const pid_t pid)
 
     strcpy  (pathFifo, PATH_BASE_FIFO);
     snprintf(pathFifo + sizeof(PATH_BASE_FIFO) - 1,
-             size_pathFifo - strlen(pathFifo),
-             "%d", pid);
+             size_pathFifo - strlen(pathFifo), "%d", pid);
 
     return pathFifo;
 }
@@ -34,7 +33,7 @@ bool IsCanReadFile(int fd_read)
     tv_Fifo.tv_usec = 0;
 
     int ret_select = select(n, &readfds, NULL, NULL, &tv_Fifo);
-    if(ret_select <= 0)
+    if (ret_select <= 0)
         return false;
     else
         return true;
@@ -79,7 +78,7 @@ int Open(const char* path, int flag, const char* strError)
 {
     (void) umask(0);
     int fd = open(path, flag);
-    if(fd < 0) {
+    if (fd < 0) {
         perror(strError);
         exit(EXIT_FAILURE);
     }
@@ -91,7 +90,7 @@ int Open(const char* path, int flag, const char* strError)
 ssize_t Read(int fd, void *buf, size_t nbytes, const char* strError)
 {
     ssize_t ret_read = read(fd, buf, nbytes);
-    if(ret_read <= 0) {
+    if (ret_read <= 0) {
         perror(strError);
         exit(EXIT_FAILURE);
     }
@@ -103,7 +102,7 @@ ssize_t Read(int fd, void *buf, size_t nbytes, const char* strError)
 ssize_t Write(int fd, const void *buf, size_t n, const char* strError)
 {
     ssize_t ret_write = write(fd, buf, n);
-    if(ret_write <= 0) {
+    if (ret_write <= 0) {
         perror(strError);
         exit(EXIT_FAILURE);
     }
@@ -115,7 +114,7 @@ ssize_t Write(int fd, const void *buf, size_t n, const char* strError)
 int Fcntl(int fd, int cmd, long arg, const char* strError)
 {
     int ret_fcntl = fcntl(fd, cmd, arg);
-    if(ret_fcntl == -1) {
+    if (ret_fcntl == -1) {
         perror(strError);
         exit(EXIT_FAILURE);
     }
