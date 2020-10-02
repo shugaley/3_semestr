@@ -20,8 +20,8 @@ void WriteFifo(const char* pathInput)
     int fd_Input = Open(pathInput, O_RDONLY, "Error open FileInput\n");
 
     int    ret_splice = 0;
-    while((ret_splice = splice(fd_Input, NULL, fd_Fifo,
-                            NULL, PIPE_BUF, SPLICE_F_MOVE))) {
+    while((ret_splice = splice(fd_Input, NULL, fd_Fifo, NULL,
+                               PIPE_BUF, SPLICE_F_MOVE))) {
         if (ret_splice < 0) {
             perror("Error splice(writer)\n");
             exit(EXIT_FAILURE);

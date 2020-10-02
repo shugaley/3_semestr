@@ -29,8 +29,8 @@ void ReadFifo()
     int fd_Output = Open(PATH_OUTPUT, O_WRONLY, "Error open output");
 
     int ret_splice = 0;
-    while ((ret_splice = splice(fd_Fifo, NULL, fd_Output,
-                                NULL, PIPE_BUF, SPLICE_F_MOVE))) {
+    while ((ret_splice = splice(fd_Fifo, NULL, fd_Output, NULL,
+                                PIPE_BUF, SPLICE_F_MOVE))) {
         if (ret_splice < 0) {
             perror("Error splice(reader)\n");
             exit(EXIT_FAILURE);
