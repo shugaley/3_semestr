@@ -1,8 +1,6 @@
 
 #include "fifo.h"
 
-const char PATH_OUTPUT[] = "output.txt";
-
 void WriteFifo_Pid(const pid_t pid, const char* pathFile_FifoPid);
 
 //=============================================================================
@@ -26,18 +24,17 @@ void ReadFifo()
 
     Fcntl(fd_Fifo, F_SETFL, O_RDONLY, "Error fcntl fifo(reader)");
 
-    int fd_Output = Open(PATH_OUTPUT, O_WRONLY, "Error open output");
+    if(isatty(STDOUT_FILENO))
+        fcntl(STDOUT_FILENO, F_SETFL, fcntl(STDOUT_FILENO, F_GETFL) & ~O_APPEND);
 
     int ret_splice = 0;
-    while ((ret_splice = splice(fd_Fifo, NULL, fd_Output, NULL,
+    while ((ret_splice = splice(fd_Fifo, NULL, STDOUT_FILENO, NULL,
                                 PIPE_BUF, SPLICE_F_MOVE))) {
         if (ret_splice < 0) {
             perror("Error splice(reader)\n");
             exit(EXIT_FAILURE);
         }
     }
-
-    close(fd_Output);
 
     close(fd_Fifo);
     unlink(pathFifo);
