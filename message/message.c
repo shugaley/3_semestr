@@ -27,28 +27,30 @@ void Print_NumChildProcesses(const size_t nProcesses)
     size_t numProcess = 0;
     CreateProcesses(nProcesses, &pid, &numProcess);
 
-    if (pid > 0)
+    if (pid > 0) {
         for (size_t i_numProcess = 1; i_numProcess <= nProcesses; i_numProcess++) {
-//            printf("Parent %zu\n", i_numProcess);
+//          printf("Parent %zu\n", i_numProcess);
             SendMessage   (id_MsgQueue, i_numProcess);
             ReceiveMessage(id_MsgQueue, nProcesses + 1);
         }
 
-    else {
-//        printf("Child %zu [%d]\n", numProcess, getpid());
+        wait(NULL);
+    }
 
+    else {
+//      printf("Child %zu [%d]\n", numProcess, getpid());
         ReceiveMessage(id_MsgQueue, numProcess);
         printf("Child %zu\n", numProcess);
         SendMessage   (id_MsgQueue, nProcesses + 1);
         exit(EXIT_SUCCESS);
     }
 
-//    errno = 0;
-//    int ret_msgctl = msgctl(id_MsgQueue, IPC_RMID, NULL);
-//    if (ret_msgctl < 0) {
-//        perror("Error msgctl()");
-//        exit(EXIT_FAILURE);
-//    }
+    errno = 0;
+    int ret_msgctl = msgctl(id_MsgQueue, IPC_RMID, NULL);
+    if (ret_msgctl < 0) {
+        perror("Error msgctl()");
+        exit(EXIT_FAILURE);
+    }
 }
 
 //-----------------------------------------------------------------------------
