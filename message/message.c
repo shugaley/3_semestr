@@ -7,7 +7,8 @@ struct Msgbuf {
     long mtype;
 };
 
-void CreateProcesses(size_t nProcesses, pid_t* pid, size_t* numProcess, pid_t* pidsChild);
+void CreateProcesses(size_t nProcesses, pid_t* pid, size_t* numProcess,
+                     pid_t* pidsChild);
 
 void    SendMessage(int msqid, long mtype);
 void ReceiveMessage(int msqid, long mtype);
@@ -26,11 +27,11 @@ void Print_NumChildProcesses(const size_t nProcesses)
     pid_t pid = 0;
     size_t numProcess = 0;
     pid_t* pidsChild = (pid_t*)calloc(nProcesses + 1, sizeof(*pidsChild));
-    CreateProcesses(nProcesses, &pid, &numProcess, pidsChild + 1);
+    CreateProcesses(nProcesses, &pid, &numProcess, pidsChild);
 
     if (pid > 0)
         for (size_t i_numProcess = 1; i_numProcess <= nProcesses; i_numProcess++) {
-//          printf("Parent %zu\n", i_numProcess);
+//          printf("Parent %zu\n", i_numrocess);
             SendMessage   (id_MsgQueue, i_numProcess);
             wait(&pidsChild[i_numProcess]);
         }
@@ -48,29 +49,36 @@ void Print_NumChildProcesses(const size_t nProcesses)
         perror("Error msgctl()");
         exit(EXIT_FAILURE);
     }
+
+    free(pidsChild);
 }
 
 //-----------------------------------------------------------------------------
 
-void CreateProcesses(size_t nProcesses, pid_t* pid, size_t* numProcess, pid_t* pidsChild)
+void CreateProcesses(size_t nProcesses, pid_t* pid, size_t* numProcess,
+                     pid_t* pidsChild)
 {
     assert(nProcesses > 0);
     assert(pid);
     assert(numProcess);
     assert(pidsChild);
 
+    pid_t* cur_pidsChild = pidsChild + 1;
     for (size_t i_numProcess = 1; i_numProcess <= nProcesses; i_numProcess++) {
         errno = 0;
         switch (*pid = fork()) {
             case -1:
                 perror("Error fork()");
+                for(size_t j_numProcess = 1; j_numProcess < i_numProcess; j_numProcess++)
+                    kill(pidsChild[j_numProcess], SIGKILL);
                 exit(EXIT_FAILURE);
             case 0:
                 *numProcess = i_numProcess;
+                prctl(PR_GET_PDEATHSIG, pid);
                 break;
             default:
-                *pidsChild = *pid;
-                pidsChild++;
+                *cur_pidsChild = *pid;
+                cur_pidsChild++;
                 continue;
         }
 
