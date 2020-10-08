@@ -28,15 +28,12 @@ void Print_NumChildProcesses(const size_t nProcesses)
     pid_t* pidsChild = (pid_t*)calloc(nProcesses + 1, sizeof(*pidsChild));
     CreateProcesses(nProcesses, &pid, &numProcess, pidsChild + 1);
 
-    if (pid > 0) {
+    if (pid > 0)
         for (size_t i_numProcess = 1; i_numProcess <= nProcesses; i_numProcess++) {
 //          printf("Parent %zu\n", i_numProcess);
             SendMessage   (id_MsgQueue, i_numProcess);
             wait(&pidsChild[i_numProcess]);
         }
-
-        wait(NULL);
-    }
 
     else {
 //      printf("Child %zu [%d]\n", numProcess, getpid());
