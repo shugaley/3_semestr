@@ -2,6 +2,7 @@
 #ifndef MESSAGE_MESSAGE_H
 #define MESSAGE_MESSAGE_H
 
+#include <stdbool.h>
 #include <sys/ipc.h>
 #include <sys/msg.h>
 #include <sys/types.h>

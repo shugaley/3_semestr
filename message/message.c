@@ -7,7 +7,7 @@ struct Msgbuf {
     long mtype;
 };
 
-void CreateProcesses(size_t nProcesses, pid_t* pid, size_t* numProcess);
+void CreateProcesses(size_t nProcesses, pid_t* pid, size_t* numProcess, pid_t* pidsChild);
 
 void    SendMessage(int msqid, long mtype);
 void ReceiveMessage(int msqid, long mtype);
@@ -25,13 +25,15 @@ void Print_NumChildProcesses(const size_t nProcesses)
 
     pid_t pid = 0;
     size_t numProcess = 0;
-    CreateProcesses(nProcesses, &pid, &numProcess);
+    pid_t* pidsChild = (pid_t*)calloc(nProcesses + 1, sizeof(*pidsChild));
+    CreateProcesses(nProcesses, &pid, &numProcess, pidsChild + 1);
 
     if (pid > 0) {
+        printf("2\n");
         for (size_t i_numProcess = 1; i_numProcess <= nProcesses; i_numProcess++) {
 //          printf("Parent %zu\n", i_numProcess);
             SendMessage   (id_MsgQueue, i_numProcess);
-            ReceiveMessage(id_MsgQueue, nProcesses + 1);
+            wait(&pidsChild[i_numProcess]);
         }
 
         wait(NULL);
@@ -41,9 +43,10 @@ void Print_NumChildProcesses(const size_t nProcesses)
 //      printf("Child %zu [%d]\n", numProcess, getpid());
         ReceiveMessage(id_MsgQueue, numProcess);
         printf("Child %zu\n", numProcess);
-        SendMessage   (id_MsgQueue, nProcesses + 1);
         exit(EXIT_SUCCESS);
     }
+
+    printf("3\n");
 
     errno = 0;
     int ret_msgctl = msgctl(id_MsgQueue, IPC_RMID, NULL);
@@ -55,11 +58,12 @@ void Print_NumChildProcesses(const size_t nProcesses)
 
 //-----------------------------------------------------------------------------
 
-void CreateProcesses(size_t nProcesses, pid_t* pid, size_t* numProcess)
+void CreateProcesses(size_t nProcesses, pid_t* pid, size_t* numProcess, pid_t* pidsChild)
 {
     assert(nProcesses > 0);
     assert(pid);
     assert(numProcess);
+    assert(pidsChild);
 
     for (size_t i_numProcess = 1; i_numProcess <= nProcesses; i_numProcess++) {
         errno = 0;
@@ -71,12 +75,16 @@ void CreateProcesses(size_t nProcesses, pid_t* pid, size_t* numProcess)
                 *numProcess = i_numProcess;
                 break;
             default:
+                *pidsChild = *pid;
+                pidsChild++;
                 continue;
         }
 
         if(*numProcess > 0)
             break;
     }
+
+    pidsChild -= nProcesses;
 }
 
 
