@@ -29,7 +29,6 @@ void Print_NumChildProcesses(const size_t nProcesses)
     CreateProcesses(nProcesses, &pid, &numProcess, pidsChild + 1);
 
     if (pid > 0) {
-        printf("2\n");
         for (size_t i_numProcess = 1; i_numProcess <= nProcesses; i_numProcess++) {
 //          printf("Parent %zu\n", i_numProcess);
             SendMessage   (id_MsgQueue, i_numProcess);
@@ -45,8 +44,6 @@ void Print_NumChildProcesses(const size_t nProcesses)
         printf("Child %zu\n", numProcess);
         exit(EXIT_SUCCESS);
     }
-
-    printf("3\n");
 
     errno = 0;
     int ret_msgctl = msgctl(id_MsgQueue, IPC_RMID, NULL);
