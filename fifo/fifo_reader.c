@@ -22,7 +22,7 @@ void ReadFifo()
         exit(EXIT_FAILURE);
     }
 
-    Fcntl(fd_Fifo, F_SETFL, O_RDONLY & ~O_RDWR, "Error fcntl fifo(reader)");
+    Fcntl(fd_Fifo, F_SETFL, O_RDONLY, "Error fcntl fifo(reader)");
 
     if(isatty(STDOUT_FILENO))
         fcntl(STDOUT_FILENO, F_SETFL, fcntl(STDOUT_FILENO, F_GETFL) & ~O_APPEND);
