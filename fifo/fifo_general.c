@@ -3,7 +3,7 @@
 
 static const char   PATH_BASE_FIFO[] = "/tmp/fifo_"; //fifo_<pid>
 static const size_t SIZE_STR_INT32   = 7;
-static const time_t TIME_WAITING     = 1;
+static const time_t TIME_WAITING     = 10;
 
 //=============================================================================
 //General func {
@@ -76,6 +76,7 @@ int Mkfifo(const char* path, mode_t mode, const char* strError)
 
 int Open(const char* path, int flag, const char* strError)
 {
+    errno = 0;
     (void) umask(0);
     int fd = open(path, flag);
     if (fd < 0) {
@@ -89,6 +90,7 @@ int Open(const char* path, int flag, const char* strError)
 
 ssize_t Read(int fd, void *buf, size_t nbytes, const char* strError)
 {
+    errno = 0;
     ssize_t ret_read = read(fd, buf, nbytes);
     if (ret_read <= 0) {
         perror(strError);
@@ -101,6 +103,7 @@ ssize_t Read(int fd, void *buf, size_t nbytes, const char* strError)
 
 ssize_t Write(int fd, const void *buf, size_t n, const char* strError)
 {
+    errno = 0;
     ssize_t ret_write = write(fd, buf, n);
     if (ret_write <= 0) {
         perror(strError);
@@ -113,6 +116,7 @@ ssize_t Write(int fd, const void *buf, size_t n, const char* strError)
 
 int Fcntl(int fd, int cmd, long arg, const char* strError)
 {
+    errno = 0;
     int ret_fcntl = fcntl(fd, cmd, arg);
     if (ret_fcntl == -1) {
         perror(strError);

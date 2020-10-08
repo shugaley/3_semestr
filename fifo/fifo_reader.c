@@ -22,14 +22,15 @@ void ReadFifo()
         exit(EXIT_FAILURE);
     }
 
-    Fcntl(fd_Fifo, F_SETFL, O_RDONLY, "Error fcntl fifo(reader)");
+    Fcntl(fd_Fifo, F_SETFL, O_RDONLY & ~O_RDWR, "Error fcntl fifo(reader)");
 
     if(isatty(STDOUT_FILENO))
         fcntl(STDOUT_FILENO, F_SETFL, fcntl(STDOUT_FILENO, F_GETFL) & ~O_APPEND);
 
     int ret_splice = 0;
     while ((ret_splice = splice(fd_Fifo, NULL, STDOUT_FILENO, NULL,
-                                PIPE_BUF, SPLICE_F_MOVE))) {
+                                10, SPLICE_F_MOVE))) {
+        printf("  ret splice %d\n", ret_splice);
         if (ret_splice < 0) {
             perror("Error splice(reader)\n");
             exit(EXIT_FAILURE);
@@ -40,6 +41,7 @@ void ReadFifo()
     unlink(pathFifo);
 }
 
+//-----------------------------------------------------------------------------
 
 void WriteFifo_Pid(const pid_t pid, const char* pathFile_FifoPid)
 {
@@ -52,4 +54,6 @@ void WriteFifo_Pid(const pid_t pid, const char* pathFile_FifoPid)
                           "Error open FifoPid(reader)");
 
     Write(fd_FifoPid, &pid, sizeof(pid_t), "Error write pid");
+
+    close(fd_FifoPid);
 }

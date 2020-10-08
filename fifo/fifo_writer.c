@@ -13,15 +13,19 @@ void WriteFifo(const char* pathInput)
 
     char* pathFifo = MakePathFifo(pid_FifoReader);
 
+    //sleep(3);
+
     int fd_Fifo = Open(pathFifo, O_WRONLY | O_NONBLOCK,
                        "Error open pathFifo(writer)\n");
     Fcntl(fd_Fifo, F_SETFL, O_WRONLY, "Error fcntrl(pathFifo)(writer)\n");
 
     int fd_Input = Open(pathInput, O_RDONLY, "Error open FileInput\n");
 
+//    sleep(3);
+
     int    ret_splice = 0;
     while((ret_splice = splice(fd_Input, NULL, fd_Fifo, NULL,
-                               PIPE_BUF, SPLICE_F_MOVE))) {
+                               1, SPLICE_F_MOVE))) {
         if (ret_splice < 0) {
             perror("Error splice(writer)\n");
             exit(EXIT_FAILURE);
@@ -31,6 +35,7 @@ void WriteFifo(const char* pathInput)
     close(fd_Input);
 }
 
+//-----------------------------------------------------------------------------
 
 pid_t ReadFifoPid(const char* pathFifoPid)
 {
@@ -44,6 +49,8 @@ pid_t ReadFifoPid(const char* pathFifoPid)
 
     pid_t pid = 0;
     Read(fd_FifoPid, &pid, sizeof(pid_t), "Error read pid_writer");
+
+    close(fd_FifoPid);
 
     return pid;
 }
