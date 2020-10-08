@@ -80,8 +80,6 @@ void CreateProcesses(size_t nProcesses, pid_t* pid, size_t* numProcess, pid_t* p
         if(*numProcess > 0)
             break;
     }
-
-    pidsChild -= nProcesses;
 }
 
 
