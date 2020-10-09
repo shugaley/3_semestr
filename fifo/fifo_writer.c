@@ -25,7 +25,7 @@ void WriteFifo(const char* pathInput)
 
     int    ret_splice = 0;
     while((ret_splice = splice(fd_Input, NULL, fd_Fifo, NULL,
-                               1, SPLICE_F_MOVE))) {
+                               PIPE_BUF, SPLICE_F_MOVE))) {
         if (ret_splice < 0) {
             perror("Error splice(writer)\n");
             exit(EXIT_FAILURE);

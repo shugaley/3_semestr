@@ -29,13 +29,11 @@ void ReadFifo()
 
     int ret_splice = 0;
     while ((ret_splice = splice(fd_Fifo, NULL, STDOUT_FILENO, NULL,
-                                10, SPLICE_F_MOVE))) {
-        printf("  ret splice %d\n", ret_splice);
+                                PIPE_BUF, SPLICE_F_MOVE)))
         if (ret_splice < 0) {
             perror("Error splice(reader)\n");
             exit(EXIT_FAILURE);
         }
-    }
 
     close(fd_Fifo);
     unlink(pathFifo);
