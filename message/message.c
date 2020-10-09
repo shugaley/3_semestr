@@ -66,6 +66,7 @@ void CreateProcesses(size_t nProcesses, pid_t* pid, size_t* numProcess,
     pid_t* cur_pidsChild = pidsChild + 1;
     for (size_t i_numProcess = 1; i_numProcess <= nProcesses; i_numProcess++) {
         errno = 0;
+        pid_t pid_parent = getpid();
         switch (*pid = fork()) {
             case -1:
                 perror("Error fork()");
@@ -74,6 +75,8 @@ void CreateProcesses(size_t nProcesses, pid_t* pid, size_t* numProcess,
                 exit(EXIT_FAILURE);
             case 0:
                 *numProcess = i_numProcess;
+                if(getppid() != pid_parent)
+                    exit(EXIT_FAILURE);
                 prctl(PR_GET_PDEATHSIG, pid);
                 break;
             default:
