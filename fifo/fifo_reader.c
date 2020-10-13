@@ -24,7 +24,7 @@ void ReadFifo()
 
     Fcntl(fd_Fifo, F_SETFL, O_RDONLY, "Error fcntl fifo(reader)");
 
-    if(isatty(STDOUT_FILENO))
+    if (isatty(STDOUT_FILENO))
         fcntl(STDOUT_FILENO, F_SETFL, fcntl(STDOUT_FILENO, F_GETFL) & ~O_APPEND);
 
     int ret_splice = 0;
