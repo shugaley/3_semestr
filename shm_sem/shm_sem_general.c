@@ -1,12 +1,12 @@
 
 #include "shm_sem_general.h"
 
-#include "assert.h"
-#include "stdio.h"
-#include "stdlib.h"
-#include "sys/ipc.h"
-#include "sys/shm.h"
-#include "sys/types.h"
+#include <assert.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/ipc.h>
+#include <sys/shm.h>
+#include <sys/types.h>
 
 static const size_t SIZE_SHARED_MEMORY = 4096;
 static const int SHMGET_SHMFLG         = 0666;

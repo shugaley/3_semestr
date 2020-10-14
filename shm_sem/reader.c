@@ -1,10 +1,10 @@
 
 #include "shm_sem.h"
 
-#include "stdio.h"
-#include "stdlib.h"
-#include "sys/ipc.h"
-#include "sys/shm.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/ipc.h>
+#include <sys/shm.h>
 
 #include "shm_sem_general.h"
 
