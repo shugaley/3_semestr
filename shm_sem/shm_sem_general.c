@@ -11,9 +11,12 @@
 static const size_t SIZE_SHARED_MEMORY = 4096;
 static const int SHMGET_SHMFLG         = 0666;
 
+static const size_t N_SEMAPHORES = 4;
+static const int SEMGET_SEMFLG   = 0666;
+
 // Shell funcs {
 
-char* GetSharedMemory(const char* path, const int prog_id, int* shmid)
+char* CreateSharedMemory(const char* path, const int prog_id, int* shmid)
 {
     assert(path);
 
@@ -41,5 +44,32 @@ char* GetSharedMemory(const char* path, const int prog_id, int* shmid)
     return shared_memory;
 }
 
+
+struct Semaphores ConstructSemaphores(const char* path, const int prog_id, int* semid)
+{
+    assert(path);
+
+    key_t key = ftok(path, prog_id);
+    if (key < 0) {
+        perror("Error ftok()");
+        exit(EXIT_FAILURE);
+    }
+
+    int ret_semget = semget(key, N_SEMAPHORES, SEMGET_SEMFLG | IPC_CREAT);
+    if (ret_semget < 0) {
+        perror("Error semget()");
+        exit(EXIT_FAILURE);
+    }
+
+    if (semid)
+        *semid = ret_semget;
+
+    struct sembuf* sops = (struct sembuf*)calloc(N_SEMAPHORES, sizeof(*sops));
+    struct Semaphores semaphores = {N_SEMAPHORES, &sops[0], &sops[1],
+                                                  &sops[2], &sops[3]  };
+    return semaphores;
+}
+
+//void DestructSemaphores(struct Semaphores* semaphores, int* semid);
 
 // } Shell funcs
