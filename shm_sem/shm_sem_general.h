@@ -3,7 +3,7 @@
 
 // Shell funcs {
 
-char* GetSharedMemory(const char* path, const int prog_id);
+char* GetSharedMemory(const char* path, const int prog_id, int* shmid);
 
 // } Shell funcs
 
