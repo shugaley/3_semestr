@@ -17,6 +17,7 @@ void ReadSharedMemory ()
     char* shared_memory = GetSharedMemory(FTOK_PATHNAME, FTOK_PROJ_ID, &shmid);
 
 
+
     int ret_shmctl = shmctl(shmid, IPC_RMID, NULL);
     if (ret_shmctl < 0) {
         perror("Error shmctl()");
