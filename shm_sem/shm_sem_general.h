@@ -5,9 +5,10 @@
 
 // Shell funcs {
 
-char* CreateSharedMemory (const char* path, int prog_id, size_t size,  int* shmid);
+char* ConstructSharedMemory(const char* path, int prog_id, size_t size, int* shmid);
+void   DestructSharedMemory(const char* shmaddr, int shmid);
 
-void  CreateSemaphores   (const char* path, int prog_id, size_t nsops, int* semid);
+void  CreateSemaphores     (const char* path, int prog_id, size_t nsops, int* semid);
 void  Semop(int semid, short num_semaphore, short n)
 
 // } Shell funcs

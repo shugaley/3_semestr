@@ -15,7 +15,7 @@ enum NumSemaphores {
     NUM_SEMAPHORES_MUTEX        = 2,
 };
 
-void WriteSharedMemory(const char* pathInput);
+void WriteSharedMemory(const char* path_input);
 void ReadSharedMemory ();
 
 #endif //SHM_SEM_SHM_SEM_H
