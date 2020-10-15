@@ -13,8 +13,7 @@ static const int SEMGET_SEMFLG = 0666;
 
 // Shell funcs {
 
-char* CreateSharedMemory(const char* path, const int prog_id,
-                         const size_t size, int* shmid)
+char* CreateSharedMemory(const char* path, int prog_id, size_t size, int* shmid)
 {
     assert(path);
 
@@ -43,8 +42,7 @@ char* CreateSharedMemory(const char* path, const int prog_id,
 }
 
 
-void CreateSemaphores(const char* path, const int prog_id,
-                      const size_t nsops, int* semid)
+void CreateSemaphores(const char* path, int prog_id, size_t nsops, int* semid)
 {
     assert(path);
 
@@ -65,7 +63,7 @@ void CreateSemaphores(const char* path, const int prog_id,
 }
 
 
-void Semop(const int semid, const short num_semaphore, const short n)
+void Semop(int semid, short num_semaphore, short n)
 {
     struct sembuf semaphore;
     semaphore.sem_num = num_semaphore;
