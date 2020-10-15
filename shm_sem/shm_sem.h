@@ -6,6 +6,9 @@
 static const char FTOK_PATHNAME[] = __FILE__;
 static const int  FTOK_PROJ_ID    = 0;
 
+static const size_t SIZE_SHARED_MEMORY = 4096;
+static const size_t N_SEMAPHORES       = 4;
+
 void WriteSharedMemory(const char* pathInput);
 void ReadSharedMemory ();
 
