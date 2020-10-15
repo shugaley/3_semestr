@@ -22,6 +22,8 @@ void WriteSharedMemory(const char* pathInput)
     int semid = 0;
     CreateSemaphores(FTOK_PATHNAME, FTOK_PROJ_ID, N_SEMAPHORES, &semid);
 
+
+
     int ret_shmctl = shmctl(shmid, IPC_RMID, NULL);
     if (ret_shmctl < 0) {
         perror("Error shmctl()");
