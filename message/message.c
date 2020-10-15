@@ -33,14 +33,17 @@ void Print_NumChildProcesses(const size_t nProcesses)
         for (size_t i_numProcess = 1; i_numProcess <= nProcesses; i_numProcess++) {
 //          printf("Parent %zu\n", i_numrocess);
             SendMessage   (id_MsgQueue, i_numProcess);
-            wait(&pidsChild[i_numProcess]);
+            ReceiveMessage(id_MsgQueue, nProcesses + 1);
+//          wait(&pidsChild[i_numProcess]);
         }
 
     else {
 //      printf("Child %zu [%d]\n", numProcess, getpid());
         ReceiveMessage(id_MsgQueue, numProcess);
         printf("Child %zu\n", numProcess);
-        exit(EXIT_SUCCESS);
+        fflush(stdout);
+        SendMessage(id_MsgQueue, nProcesses + 1);
+//      exit(EXIT_SUCCESS);
     }
 
     errno = 0;
@@ -65,8 +68,8 @@ void CreateProcesses(size_t nProcesses, pid_t* pid, size_t* numProcess,
 
     pid_t* cur_pidsChild = pidsChild + 1;
     for (size_t i_numProcess = 1; i_numProcess <= nProcesses; i_numProcess++) {
-        errno = 0;
         pid_t pid_parent = getpid();
+        errno = 0;
         switch (*pid = fork()) {
             case -1:
                 perror("Error fork()");
@@ -77,7 +80,12 @@ void CreateProcesses(size_t nProcesses, pid_t* pid, size_t* numProcess,
                 *numProcess = i_numProcess;
                 if(getppid() != pid_parent)
                     exit(EXIT_FAILURE);
-                prctl(PR_GET_PDEATHSIG, pid);
+
+                int ret_prtcl = prctl(PR_GET_PDEATHSIG, SIGKILL);
+                if (ret_prtcl < 0) {
+                    perror("Error prctl\n");
+                    exit(EXIT_FAILURE);
+                }
                 break;
             default:
                 *cur_pidsChild = *pid;
@@ -116,7 +124,7 @@ void ReceiveMessage(int msqid, long mtype)
     struct Msgbuf msgbuf = {0};
 
     errno = 0;
-    int res_msgrcv = msgrcv(msqid, &msgbuf, 0, mtype, 0);
+    ssize_t res_msgrcv = msgrcv(msqid, &msgbuf, 0, mtype, 0);
     if (res_msgrcv < 0) {
         perror("Error msgrcv()");
         exit(EXIT_FAILURE);
