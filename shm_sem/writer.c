@@ -17,7 +17,11 @@ void WriteSharedMemory(const char* pathInput)
     assert(pathInput);
 
     int shmid = 0;
-    char* shared_memory = GetSharedMemory(FTOK_PATHNAME, FTOK_PROJ_ID, &shmid);
+    char* shared_memory = CreateSharedMemory(FTOK_PATHNAME, FTOK_PROJ_ID,
+                                             SIZE_SHARED_MEMORY, &shmid);
+    int semid = 0;
+    CreateSemaphores(FTOK_PATHNAME, FTOK_PROJ_ID, N_SEMAPHORES, &semid);
+
 
 
 

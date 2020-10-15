@@ -5,15 +5,15 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/ipc.h>
+#include <sys/sem.h>
 #include <sys/shm.h>
-#include <sys/types.h>
 
-static const size_t SIZE_SHARED_MEMORY = 4096;
-static const int SHMGET_SHMFLG         = 0666;
+static const int SHMGET_SHMFLG = 0666;
+static const int SEMGET_SEMFLG = 0666;
 
 // Shell funcs {
 
-char* GetSharedMemory(const char* path, const int prog_id, int* shmid)
+char* CreateSharedMemory(const char* path, int prog_id, size_t size, int* shmid)
 {
     assert(path);
 
@@ -23,7 +23,7 @@ char* GetSharedMemory(const char* path, const int prog_id, int* shmid)
         exit(EXIT_FAILURE);
     }
 
-    int ret_shmget = shmget(key, SIZE_SHARED_MEMORY, SHMGET_SHMFLG | IPC_CREAT);
+    int ret_shmget = shmget(key, size, SHMGET_SHMFLG | IPC_CREAT);
     if (ret_shmget < 0) {
         perror("Error shmget()");
         exit(EXIT_FAILURE);
@@ -41,5 +41,40 @@ char* GetSharedMemory(const char* path, const int prog_id, int* shmid)
     return shared_memory;
 }
 
+
+void CreateSemaphores(const char* path, int prog_id, size_t nsops, int* semid)
+{
+    assert(path);
+
+    key_t key = ftok(path, prog_id);
+    if (key < 0) {
+        perror("Error ftok()");
+        exit(EXIT_FAILURE);
+    }
+
+    int ret_semget = semget(key, nsops, SEMGET_SEMFLG | IPC_CREAT);
+    if (ret_semget < 0) {
+        perror("Error semget()");
+        exit(EXIT_FAILURE);
+    }
+
+    if (semid)
+        *semid = ret_semget;
+}
+
+
+void Semop(int semid, short num_semaphore, short n)
+{
+    struct sembuf semaphore;
+    semaphore.sem_num = num_semaphore;
+    semaphore.sem_op  = n;
+    semaphore.sem_flg = SEM_UNDO;
+
+    int ret_semop = semop(semid, &semaphore, 1);
+    if (ret_semop < 0) {
+        perror("Error semop");
+        exit(EXIT_FAILURE);
+    }
+}
 
 // } Shell funcs

@@ -1,9 +1,14 @@
 #ifndef SHM_SEM_SHM_SEM_GENERAL_H
 #define SHM_SEM_SHM_SEM_GENERAL_H
 
+#include <sys/types.h>
+
 // Shell funcs {
 
-char* GetSharedMemory(const char* path, const int prog_id, int* shmid);
+char* CreateSharedMemory (const char* path, int prog_id, size_t size,  int* shmid);
+
+void  CreateSemaphores   (const char* path, int prog_id, size_t nsops, int* semid);
+void  Semop(int semid, short num_semaphore, short n)
 
 // } Shell funcs
 
