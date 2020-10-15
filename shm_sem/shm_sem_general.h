@@ -3,21 +3,12 @@
 
 #include <sys/sem.h>
 
-struct Semaphores {
-    const size_t n;
-    struct sembuf* existingWriter;
-    struct sembuf* existingReader;
-    struct sembuf* writer;
-    struct sembuf* reader;
-};
-
 
 // Shell funcs {
 
-char*             CreateSharedMemory (const char* path, const int prog_id, int* shmid);
+char* CreateSharedMemory (const char* path, const int prog_id, int* shmid);
 
-struct Semaphores ConstructSemaphores(const char* path, const int prog_id, int* semid);
-//void DestructSemaphores(struct Semaphores* semaphores, int* semid);
+void  CreateSemaphores(const char* path, const int prog_id, int* semid);
 
 // } Shell funcs
 

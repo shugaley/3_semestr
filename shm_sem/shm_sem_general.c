@@ -45,7 +45,7 @@ char* CreateSharedMemory(const char* path, const int prog_id, int* shmid)
 }
 
 
-struct Semaphores ConstructSemaphores(const char* path, const int prog_id, int* semid)
+void CreateSemaphores(const char* path, const int prog_id, int* semid)
 {
     assert(path);
 
@@ -63,11 +63,6 @@ struct Semaphores ConstructSemaphores(const char* path, const int prog_id, int* 
 
     if (semid)
         *semid = ret_semget;
-
-    struct sembuf* sops = (struct sembuf*)calloc(N_SEMAPHORES, sizeof(*sops));
-    struct Semaphores semaphores = {N_SEMAPHORES, &sops[0], &sops[1],
-                                                  &sops[2], &sops[3]  };
-    return semaphores;
 }
 
 //void DestructSemaphores(struct Semaphores* semaphores, int* semid);
