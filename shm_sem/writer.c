@@ -55,7 +55,10 @@ void WriteData(const char* path_input, const char* shmaddr, int semid)
 
     ssize_t ret_read = 1;
     while (ret_read != 0) {
-
-
+        Semop(semid, NUM_SEMAPHORES_IS_EMPTY, -1, 0);
+        Semop(semid, NUM_SEMAPHORES_MUTEX,    -1, 0);
+        ret_read = read(fd, shmaddr, SIZE_SHARED_MEMORY);
+        Semop(semid, NUM_SEMAPHORES_MUTEX,   1, 0);
+        Semop(semid, NUM_SEMAPHORES_IS_FULL, 1, 0);
     }
 }
