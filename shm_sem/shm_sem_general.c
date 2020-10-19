@@ -104,4 +104,22 @@ void Semop(int semid, short num_semaphore, short n, short sem_flg)
     }
 }
 
+void DumpSemaphores(int semid, size_t nsops)
+{
+    fprintf(stderr, "DumpSemaphores :\n");
+
+    short* value_sems = (short*)calloc(nsops, sizeof(*value_sems));
+    errno = 0;
+    if (semctl(semid, 0, GETALL, value_sems) < 0) {
+        perror("semctl()");
+        exit(EXIT_FAILURE);
+    }
+
+    fprintf(stderr, "SemVal = {");
+    for (size_t i_sem = 0; i_sem < 5; i_sem++)
+        fprintf(stderr, " %d", value_sems[i_sem]);
+    fprintf(stderr, "}\n");
+
+    free(value_sems);
+}
 // } Shell funcs

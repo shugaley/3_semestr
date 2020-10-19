@@ -11,6 +11,8 @@ void   DestructSharedMemory(const char* shmaddr, int shmid);
 void  CreateSemaphores     (const char* path, int prog_id, size_t nsops, int* semid);
 void  Semop(int semid, short num_semaphore, short n, short sem_flg);
 
+void DumpSemaphores(int semid, size_t nsops);
+
 // } Shell funcs
 
 #endif //SHM_SEM_SHM_SEM_GENERAL_H
