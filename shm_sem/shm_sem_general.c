@@ -52,7 +52,7 @@ void DestructSharedMemory(const char* shmaddr, int shmid)
 
     errno = 0;
     int ret_shmdt = shmdt(shmaddr);
-    if (shmaddr < 0) {
+    if (ret_shmdt < 0) {
         perror("Error smaddr()");
         exit(EXIT_FAILURE);
     }
