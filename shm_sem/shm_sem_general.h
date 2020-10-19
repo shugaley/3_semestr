@@ -9,7 +9,7 @@ char* ConstructSharedMemory(const char* path, int prog_id, size_t size, int* shm
 void   DestructSharedMemory(const char* shmaddr, int shmid);
 
 void  CreateSemaphores     (const char* path, int prog_id, size_t nsops, int* semid);
-void  Semop(int semid, short num_semaphore, short n)
+void  Semop(int semid, short num_semaphore, short n, short sem_flg);
 
 // } Shell funcs
 

@@ -89,12 +89,12 @@ void CreateSemaphores(const char* path, int prog_id, size_t nsops, int* semid)
 }
 
 
-void Semop(int semid, short num_semaphore, short n)
+void Semop(int semid, short num_semaphore, short n, short sem_flg)
 {
     struct sembuf semaphore;
     semaphore.sem_num = num_semaphore;
     semaphore.sem_op  = n;
-    semaphore.sem_flg = SEM_UNDO;
+    semaphore.sem_flg = sem_flg;
 
     errno = 0;
     int ret_semop = semop(semid, &semaphore, 1);
