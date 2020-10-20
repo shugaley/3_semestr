@@ -14,12 +14,6 @@ static const int SEMGET_SEMFLG = 0666;
 
 // Shell funcs {
 
-struct Semaphore {
-    size_t num;
-    short  value;
-};
-
-
 
 char* ConstructSharedMemory(const char* path, int prog_id, size_t size, int* shmid)
 {
