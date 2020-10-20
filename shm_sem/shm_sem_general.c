@@ -67,7 +67,8 @@ void DestructSharedMemory(const char* shmaddr, int shmid)
 }
 
 
-void CreateSemaphores(const char* path, int prog_id, size_t nsops, int* semid)
+void CreateSemaphores(const char* path, int prog_id, size_t nsops,
+                      const struct SemaphoreData* sem_initData, int* semid)
 {
     assert(path);
 
@@ -79,25 +80,28 @@ void CreateSemaphores(const char* path, int prog_id, size_t nsops, int* semid)
     }
 
     errno = 0;
-    int ret_semget = semget(key, nsops, SEMGET_SEMFLG | IPC_CREAT);
-    if (ret_semget < 0) {
+    int ret_semget = semget(key, nsops, SEMGET_SEMFLG | IPC_CREAT | IPC_EXCL);
+    if (ret_semget < 0 && errno != EEXIST) {
         perror("Error semget()");
         exit(EXIT_FAILURE);
     }
+
+    if (errno != EEXIST)
+        InitSemaphores(ret_semget, sem_initData, nsops);
 
     if (semid)
         *semid = ret_semget;
 }
 
 
-void InitSemaphores(int semid, const struct Semaphore* semaphores, size_t nsops)
+void InitSemaphores(int semid, const struct SemaphoreData* sem_initData, size_t nsops)
 {
-    assert(semaphores);
+    assert(sem_initData);
 
     for(size_t i_sem = 0; i_sem < nsops; i_sem++) {
         errno = 0;
-        int ret_semctl = semctl(semid,  semaphores[i_sem].num,
-                                SETVAL, semaphores[i_sem].value);
+        int ret_semctl = semctl(semid, sem_initData[i_sem].num,
+                                SETVAL, sem_initData[i_sem].value);
         if (ret_semctl < 0) {
             perror("Error semctl in InitSemaphores");
             exit(EXIT_FAILURE);
