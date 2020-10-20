@@ -14,6 +14,13 @@ static const int SEMGET_SEMFLG = 0666;
 
 // Shell funcs {
 
+struct Semaphore {
+    size_t num;
+    short  value;
+};
+
+
+
 char* ConstructSharedMemory(const char* path, int prog_id, size_t size, int* shmid)
 {
     assert(path);
@@ -89,9 +96,25 @@ void CreateSemaphores(const char* path, int prog_id, size_t nsops, int* semid)
 }
 
 
+void InitSemaphores(int semid, const struct Semaphore* semaphores, size_t nsops)
+{
+    assert(semaphores);
+
+    for(size_t i_sem = 0; i_sem < nsops; i_sem++) {
+        errno = 0;
+        int ret_semctl = semctl(semid,  semaphores[i_sem].num,
+                                SETVAL, semaphores[i_sem].value);
+        if (ret_semctl < 0) {
+            perror("Error semctl in InitSemaphores");
+            exit(EXIT_FAILURE);
+        }
+    }
+}
+
+
 void Semop(int semid, short num_semaphore, short n, short sem_flg)
 {
-    struct sembuf semaphore;
+    struct sembuf semaphore = {};
     semaphore.sem_num = num_semaphore;
     semaphore.sem_op  = n;
     semaphore.sem_flg = sem_flg;
