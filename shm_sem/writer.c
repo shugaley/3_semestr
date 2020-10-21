@@ -33,13 +33,7 @@ void WriteSharedMemory(const char* path_input)
 
     WriteData(path_input, shmaddr, semid);
     //DestructSharedMemory(shmaddr, shmid);
-
-    errno = 0;
-    int ret_semctl = semctl(semid, 0, IPC_RMID, NULL);
-    if (ret_semctl < 0) {
-        perror("Error ret_semctl()");
-        exit(EXIT_FAILURE);
-    }
+    //delete sem???
 }
 
 

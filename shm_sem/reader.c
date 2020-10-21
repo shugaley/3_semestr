@@ -28,13 +28,6 @@ void ReadSharedMemory ()
 
     ReadData(shmaddr, semid);
     DestructSharedMemory(shmaddr, shmid);
-
-    errno = 0;
-    int ret_semctl = semctl(semid, 0, IPC_RMID, NULL);
-    if (ret_semctl < 0) {
-        perror("Error ret_semctl()");
-        exit(EXIT_FAILURE);
-    }
 }
 
 
@@ -50,8 +43,12 @@ void ReadData(const char* shmaddr, int semid)
 
         DumpSemaphores(semid, N_SEMAPHORES);
 
-        if(*shmaddr == '\0')
+        if(*shmaddr == '\0') {
+            Semop(semid, NUM_SEMAPHORES_MUTEX,    1, 0);
+            Semop(semid, NUM_SEMAPHORES_IS_EMPTY, 1, 0);
             break;
+        }
+
         printf("%s", shmaddr);
         fflush(stdout);
 
