@@ -22,7 +22,7 @@ enum NumSemaphores {
 static const struct SemaphoreData SEM_INIT_DATA[N_SEMAPHORES] =
         {NUM_SEMAPHORES_EXIST_WRITER, 0,
          NUM_SEMAPHORES_EXIST_READER, 0,
-         NUM_SEMAPHORES_MUTEX,        0,
+         NUM_SEMAPHORES_MUTEX,        1,
          NUM_SEMAPHORES_IS_EMPTY,     1,
          NUM_SEMAPHORES_IS_FULL,      0};
 
