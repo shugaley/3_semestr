@@ -11,8 +11,6 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
-#include "shm_sem_general.h"
-
 //Debug
 #include "unistd.h"
 
@@ -24,7 +22,10 @@ void WriteSharedMemory(const char* path_input)
     assert(path_input);
 
     int semid = 0;
-    CreateSemaphores(FTOK_PATHNAME, FTOK_PROJ_ID, N_SEMAPHORES, &semid);
+    CreateSemaphores(FTOK_PATHNAME, FTOK_PROJ_ID, N_SEMAPHORES,
+                     SEM_INIT_DATA, &semid);
+
+    DumpSemaphores(semid, N_SEMAPHORES);
 
     int shmid = 0;
     char* shmaddr = ConstructSharedMemory(FTOK_PATHNAME, FTOK_PROJ_ID,
@@ -57,8 +58,13 @@ void WriteData(const char* path_input, char* shmaddr, int semid)
 
     ssize_t ret_read = 1;
     while (ret_read != 0) {
+
+        DumpSemaphores(semid, N_SEMAPHORES);
+
         Semop(semid, NUM_SEMAPHORES_IS_EMPTY, -1, 0);
         Semop(semid, NUM_SEMAPHORES_MUTEX,    -1, 0);
+
+        DumpSemaphores(semid, N_SEMAPHORES);
 
         errno = 0;
         ret_read = read(fd, shmaddr, SIZE_SHARED_MEMORY);
@@ -70,7 +76,11 @@ void WriteData(const char* path_input, char* shmaddr, int semid)
         if (ret_read < SIZE_SHARED_MEMORY)
             shmaddr[ret_read] = '\0';
 
+        DumpSemaphores(semid, N_SEMAPHORES);
+
         Semop(semid, NUM_SEMAPHORES_MUTEX,   1, 0);
         Semop(semid, NUM_SEMAPHORES_IS_FULL, 1, 0);
+
+        DumpSemaphores(semid, N_SEMAPHORES);
     }
 }
