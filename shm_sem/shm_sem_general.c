@@ -79,14 +79,15 @@ void CreateSemaphores(key_t key, size_t nsops,
         }
     }
     else
-        InitSemaphores(ret_semget, sem_initData, nsops);
+        InitSemaphores(ret_semget, nsops, sem_initData);
 
     if (semid)
         *semid = ret_semget;
 }
 
 
-void InitSemaphores(int semid, const struct SemaphoreData* sem_initData, size_t nsops)
+void InitSemaphores(int semid, size_t nsops,
+                    const struct SemaphoreData* sem_initData)
 {
     assert(sem_initData);
 
