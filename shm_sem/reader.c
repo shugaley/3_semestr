@@ -16,15 +16,20 @@ void ReadData(const char* shmaddr, int semid);
 
 void ReadSharedMemory ()
 {
+    errno = 0;
+    key_t key = ftok(FTOK_PATHNAME, FTOK_PROJ_ID);
+    if (key < 0) {
+        perror("Error ftok()");
+        exit(EXIT_FAILURE);
+    }
+
     int semid = 0;
-    CreateSemaphores(FTOK_PATHNAME, FTOK_PROJ_ID, N_SEMAPHORES,
-                     SEM_INIT_DATA,  &semid);
+    CreateSemaphores(key, N_SEMAPHORES, SEM_INIT_DATA, &semid);
 
     DumpSemaphores(semid, N_SEMAPHORES);
 
     int shmid = 0;
-    char* shmaddr = ConstructSharedMemory(FTOK_PATHNAME, FTOK_PROJ_ID,
-                                          SIZE_SHARED_MEMORY, &shmid);
+    char* shmaddr = ConstructSharedMemory(key, SIZE_SHARED_MEMORY, &shmid);
 
     ReadData(shmaddr, semid);
     DestructSharedMemory(shmaddr, shmid);

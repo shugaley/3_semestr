@@ -10,10 +10,10 @@ struct SemaphoreData {
     short  value;
 };
 
-char* ConstructSharedMemory(const char* path, int prog_id, size_t size, int* shmid);
+char* ConstructSharedMemory(key_t key, size_t size, int* shmid);
 void   DestructSharedMemory(const char* shmaddr, int shmid);
 
-void  CreateSemaphores(const char* path, int prog_id, size_t nsops,
+void  CreateSemaphores(key_t key, size_t nsops,
                        const struct SemaphoreData* sem_initData, int* semid);
 
 void  InitSemaphores(int semid, const struct SemaphoreData* sem_initData, size_t nsops);

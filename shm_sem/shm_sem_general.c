@@ -15,17 +15,8 @@ static const int SEMGET_SEMFLG = 0666;
 // Shell funcs {
 
 
-char* ConstructSharedMemory(const char* path, int prog_id, size_t size, int* shmid)
+char* ConstructSharedMemory(key_t key, size_t size, int* shmid)
 {
-    assert(path);
-
-    errno = 0;
-    key_t key = ftok(path, prog_id);
-    if (key < 0) {
-        perror("Error ftok()");
-        exit(EXIT_FAILURE);
-    }
-
     errno = 0;
     int ret_shmget = shmget(key, size, SHMGET_SHMFLG | IPC_CREAT);
     if (ret_shmget < 0) {
@@ -67,17 +58,10 @@ void DestructSharedMemory(const char* shmaddr, int shmid)
 }
 
 
-void CreateSemaphores(const char* path, int prog_id, size_t nsops,
+void CreateSemaphores(key_t key, size_t nsops,
                       const struct SemaphoreData* sem_initData, int* semid)
 {
-    assert(path);
-
-    errno = 0;
-    key_t key = ftok(path, prog_id);
-    if (key < 0) {
-        perror("Error ftok()");
-        exit(EXIT_FAILURE);
-    }
+    assert(sem_initData);
 
     errno = 0;
     int ret_semget = semget(key, nsops, SEMGET_SEMFLG | IPC_CREAT | IPC_EXCL);
