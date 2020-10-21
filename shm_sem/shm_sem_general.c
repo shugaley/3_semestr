@@ -86,7 +86,15 @@ void CreateSemaphores(const char* path, int prog_id, size_t nsops,
         exit(EXIT_FAILURE);
     }
 
-    if (errno != EEXIST)
+    if (errno == EEXIST) {
+        errno = 0;
+        ret_semget = semget(key, nsops, SEMGET_SEMFLG | IPC_CREAT);
+        if (ret_semget < 0) {
+            perror("Error semget()");
+            exit(EXIT_FAILURE);
+        }
+    }
+    else
         InitSemaphores(ret_semget, sem_initData, nsops);
 
     if (semid)
@@ -127,7 +135,7 @@ void Semop(int semid, short num_semaphore, short n, short sem_flg)
 
 void DumpSemaphores(int semid, size_t nsops)
 {
-    fprintf(stderr, "DumpSemaphores :\n");
+    fprintf(stderr, "DumpSemaphores : ");
 
     short* value_sems = (short*)calloc(nsops, sizeof(*value_sems));
     errno = 0;
