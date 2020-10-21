@@ -26,6 +26,7 @@ static const struct SemaphoreData SEM_INIT_DATA[N_SEMAPHORES] =
          NUM_SEMAPHORES_IS_EMPTY,     1,
          NUM_SEMAPHORES_IS_FULL,      0};
 
+
 void WriteSharedMemory(const char* path_input);
 void ReadSharedMemory ();
 
