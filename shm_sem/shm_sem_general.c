@@ -2,6 +2,7 @@
 #include "shm_sem_general.h"
 
 #include <assert.h>
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/ipc.h>
@@ -13,16 +14,19 @@ static const int SEMGET_SEMFLG = 0666;
 
 // Shell funcs {
 
-char* CreateSharedMemory(const char* path, int prog_id, size_t size, int* shmid)
+
+char* ConstructSharedMemory(const char* path, int prog_id, size_t size, int* shmid)
 {
     assert(path);
 
+    errno = 0;
     key_t key = ftok(path, prog_id);
     if (key < 0) {
         perror("Error ftok()");
         exit(EXIT_FAILURE);
     }
 
+    errno = 0;
     int ret_shmget = shmget(key, size, SHMGET_SHMFLG | IPC_CREAT);
     if (ret_shmget < 0) {
         perror("Error shmget()");
@@ -32,6 +36,7 @@ char* CreateSharedMemory(const char* path, int prog_id, size_t size, int* shmid)
     if(shmid)
         *shmid = ret_shmget;
 
+    errno = 0;
     char* shared_memory = shmat(ret_shmget, NULL, 0);
     if (shared_memory < 0) {
         perror("Error shmat()");
@@ -42,34 +47,85 @@ char* CreateSharedMemory(const char* path, int prog_id, size_t size, int* shmid)
 }
 
 
-void CreateSemaphores(const char* path, int prog_id, size_t nsops, int* semid)
+void DestructSharedMemory(const char* shmaddr, int shmid)
+{
+    assert(shmaddr);
+
+    errno = 0;
+    int ret_shmdt = shmdt(shmaddr);
+    if (ret_shmdt < 0) {
+        perror("Error smaddr()");
+        exit(EXIT_FAILURE);
+    }
+
+    errno = 0;
+    int ret_shmctl = shmctl(shmid, IPC_RMID, NULL);
+    if (ret_shmctl < 0) {
+        perror("Error shmctl()");
+        exit(EXIT_FAILURE);
+    }
+}
+
+
+void CreateSemaphores(const char* path, int prog_id, size_t nsops,
+                      const struct SemaphoreData* sem_initData, int* semid)
 {
     assert(path);
 
+    errno = 0;
     key_t key = ftok(path, prog_id);
     if (key < 0) {
         perror("Error ftok()");
         exit(EXIT_FAILURE);
     }
 
-    int ret_semget = semget(key, nsops, SEMGET_SEMFLG | IPC_CREAT);
-    if (ret_semget < 0) {
+    errno = 0;
+    int ret_semget = semget(key, nsops, SEMGET_SEMFLG | IPC_CREAT | IPC_EXCL);
+    if (ret_semget < 0 && errno != EEXIST) {
         perror("Error semget()");
         exit(EXIT_FAILURE);
     }
+
+    if (errno == EEXIST) {
+        errno = 0;
+        ret_semget = semget(key, nsops, SEMGET_SEMFLG | IPC_CREAT);
+        if (ret_semget < 0) {
+            perror("Error semget()");
+            exit(EXIT_FAILURE);
+        }
+    }
+    else
+        InitSemaphores(ret_semget, sem_initData, nsops);
 
     if (semid)
         *semid = ret_semget;
 }
 
 
-void Semop(int semid, short num_semaphore, short n)
+void InitSemaphores(int semid, const struct SemaphoreData* sem_initData, size_t nsops)
 {
-    struct sembuf semaphore;
+    assert(sem_initData);
+
+    for(size_t i_sem = 0; i_sem < nsops; i_sem++) {
+        errno = 0;
+        int ret_semctl = semctl(semid, sem_initData[i_sem].num,
+                                SETVAL, sem_initData[i_sem].value);
+        if (ret_semctl < 0) {
+            perror("Error semctl in InitSemaphores");
+            exit(EXIT_FAILURE);
+        }
+    }
+}
+
+
+void Semop(int semid, short num_semaphore, short n, short sem_flg)
+{
+    struct sembuf semaphore = {};
     semaphore.sem_num = num_semaphore;
     semaphore.sem_op  = n;
-    semaphore.sem_flg = SEM_UNDO;
+    semaphore.sem_flg = sem_flg;
 
+    errno = 0;
     int ret_semop = semop(semid, &semaphore, 1);
     if (ret_semop < 0) {
         perror("Error semop");
@@ -77,4 +133,22 @@ void Semop(int semid, short num_semaphore, short n)
     }
 }
 
+void DumpSemaphores(int semid, size_t nsops)
+{
+    fprintf(stderr, "DumpSemaphores : ");
+
+    short* value_sems = (short*)calloc(nsops, sizeof(*value_sems));
+    errno = 0;
+    if (semctl(semid, 0, GETALL, value_sems) < 0) {
+        perror("semctl()");
+        exit(EXIT_FAILURE);
+    }
+
+    fprintf(stderr, "SemVal = {");
+    for (size_t i_sem = 0; i_sem < 5; i_sem++)
+        fprintf(stderr, " %d", value_sems[i_sem]);
+    fprintf(stderr, "}\n");
+
+    free(value_sems);
+}
 // } Shell funcs
