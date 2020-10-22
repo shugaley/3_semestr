@@ -23,7 +23,7 @@ void  InitSemaphores(int semid, size_t nsops,
 
 void  Semop(int semid, short sem_num, short sem_op, short sem_flg);
 
-void DumpSemaphores(int semid, size_t nsops);
+void DumpSemaphores(int semid, size_t nsops, const char* str);
 
 // } Shell funcs
 

@@ -118,9 +118,9 @@ void Semop(int semid, short num_semaphore, short n, short sem_flg)
     }
 }
 
-void DumpSemaphores(int semid, size_t nsops)
+void DumpSemaphores(int semid, size_t nsops, const char* str)
 {
-    fprintf(stderr, "DumpSemaphores : ");
+    fprintf(stderr, "DumpSemaphores(%s) : ", str);
 
     short* value_sems = (short*)calloc(nsops, sizeof(*value_sems));
     errno = 0;
