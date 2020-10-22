@@ -12,19 +12,20 @@ static const size_t SIZE_SHARED_MEMORY = 4096;
 #define N_SEMAPHORES 5
 
 enum NumSemaphores {
-    NUM_SEMAPHORES_EXIST_WRITER = 0,
-    NUM_SEMAPHORES_EXIST_READER = 1,
-    NUM_SEMAPHORES_MUTEX        = 2,
-    NUM_SEMAPHORES_IS_EMPTY     = 3,
-    NUM_SEMAPHORES_IS_FULL      = 4,
+    NUM_SEMAPHORES_IS_FREE_WRITER = 0,
+    NUM_SEMAPHORES_IS_FREE_READER = 1,
+    NUM_SEMAPHORES_MUTEX          = 2,
+    NUM_SEMAPHORES_IS_EMPTY       = 3,
+    NUM_SEMAPHORES_IS_FULL        = 4,
 };
 
 static const struct SemaphoreData SEM_INIT_DATA[N_SEMAPHORES] =
-        {NUM_SEMAPHORES_EXIST_WRITER, 0,
-         NUM_SEMAPHORES_EXIST_READER, 0,
-         NUM_SEMAPHORES_MUTEX,        1,
-         NUM_SEMAPHORES_IS_EMPTY,     1,
-         NUM_SEMAPHORES_IS_FULL,      0};
+        {NUM_SEMAPHORES_IS_FREE_WRITER, 1,
+         NUM_SEMAPHORES_IS_FREE_READER, 1,
+         NUM_SEMAPHORES_MUTEX,          1,
+         NUM_SEMAPHORES_IS_EMPTY,       1,
+         NUM_SEMAPHORES_IS_FULL,        0};
+
 
 void WriteSharedMemory(const char* path_input);
 void ReadSharedMemory ();

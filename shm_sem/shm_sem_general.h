@@ -10,16 +10,20 @@ struct SemaphoreData {
     short  value;
 };
 
-char* ConstructSharedMemory(const char* path, int prog_id, size_t size, int* shmid);
+char* ConstructSharedMemory(key_t key, size_t size, int* shmid);
 void   DestructSharedMemory(const char* shmaddr, int shmid);
 
-void  CreateSemaphores(const char* path, int prog_id, size_t nsops,
-                       const struct SemaphoreData* sem_initData, int* semid);
+void  CreateSemaphores(key_t key,
+                       size_t nsops,
+                       const struct SemaphoreData* sem_initData,
+                       int* semid);
 
-void  InitSemaphores(int semid, const struct SemaphoreData* sem_initData, size_t nsops);
-void  Semop         (int semid, short sem_num, short sem_op, short sem_flg);
+void  InitSemaphores(int semid, size_t nsops,
+                     const struct SemaphoreData* sem_initData);
 
-void DumpSemaphores(int semid, size_t nsops);
+void  Semop(int semid, short sem_num, short sem_op, short sem_flg);
+
+void DumpSemaphores(int semid, size_t nsops, const char* str);
 
 // } Shell funcs
 
