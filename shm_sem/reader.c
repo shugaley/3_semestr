@@ -8,8 +8,6 @@
 #include <sys/ipc.h>
 #include <sys/sem.h>
 
-//Debug
-#include "unistd.h"
 
 void ReadData(const char* shmaddr, int semid);
 
@@ -25,14 +23,16 @@ void ReadSharedMemory ()
 
     int semid = 0;
     CreateSemaphores(key, N_SEMAPHORES, SEM_INIT_DATA, &semid);
-
-    DumpSemaphores(semid, N_SEMAPHORES);
+    DumpSemaphores(semid, N_SEMAPHORES, "reader begin");
+    Semop(semid, NUM_SEMAPHORES_IS_FREE_READER, -1, SEM_UNDO);
 
     int shmid = 0;
     char* shmaddr = ConstructSharedMemory(key, SIZE_SHARED_MEMORY, &shmid);
 
     ReadData(shmaddr, semid);
+
     DestructSharedMemory(shmaddr, shmid);
+    Semop(semid, NUM_SEMAPHORES_IS_FREE_READER, 1, SEM_UNDO);
 }
 
 
@@ -41,15 +41,15 @@ void ReadData(const char* shmaddr, int semid)
     assert(shmaddr);
 
     while(1) {
-        DumpSemaphores(semid, N_SEMAPHORES);
+        DumpSemaphores(semid, N_SEMAPHORES, "reader 1");
 
         Semop(semid, NUM_SEMAPHORES_IS_FULL, -1, 0);
-        Semop(semid, NUM_SEMAPHORES_MUTEX,   -1, 0);
+        Semop(semid, NUM_SEMAPHORES_MUTEX,   -1, SEM_UNDO);
 
-        DumpSemaphores(semid, N_SEMAPHORES);
+        DumpSemaphores(semid, N_SEMAPHORES, "reader 2");
 
         if(*shmaddr == '\0') {
-            Semop(semid, NUM_SEMAPHORES_MUTEX,    1, 0);
+            Semop(semid, NUM_SEMAPHORES_MUTEX,    1, SEM_UNDO);
             Semop(semid, NUM_SEMAPHORES_IS_EMPTY, 1, 0);
             break;
         }
@@ -57,11 +57,11 @@ void ReadData(const char* shmaddr, int semid)
         printf("%s", shmaddr);
         fflush(stdout);
 
-        DumpSemaphores(semid, N_SEMAPHORES);
+        DumpSemaphores(semid, N_SEMAPHORES, "reader 3");
 
-        Semop(semid, NUM_SEMAPHORES_MUTEX,    1, 0);
+        Semop(semid, NUM_SEMAPHORES_MUTEX,    1, SEM_UNDO);
         Semop(semid, NUM_SEMAPHORES_IS_EMPTY, 1, 0);
 
-        DumpSemaphores(semid, N_SEMAPHORES);
+        DumpSemaphores(semid, N_SEMAPHORES, "reader 4");
     }
 }
