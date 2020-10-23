@@ -12,6 +12,8 @@ int CreateProcesses(size_t nProcesses, pid_t* pid, size_t* numProcess,
 
 void    SendMessage(int msqid, long mtype);
 void ReceiveMessage(int msqid, long mtype);
+void DeleteMsq     (int msqid);
+
 
 //=============================================================================
 
@@ -30,16 +32,13 @@ void Print_NumChildProcesses(const size_t nProcesses)
     int ret_CreateProcesses = CreateProcesses(nProcesses, &pid,
                                               &numProcess, pidsChild);
     if (ret_CreateProcesses < 0) {
-        errno = 0;
-        int ret_msgctl = msgctl(id_MsgQueue, IPC_RMID, NULL);
-        if (ret_msgctl < 0)
-            perror("Error msgctl()");
+        DeleteMsq(id_MsgQueue);
         exit(EXIT_FAILURE);
     }
 
 
     if (pid > 0)
-        for (size_t i_numProcess = 1; i_numProcess <= nProcesses; i_numProcess++) {
+        for (size_t i_numProcess = nProcesses; i_numProcess > 0; i_numProcess--) {
 //          printf("Parent %zu\n", i_numrocess);
             SendMessage   (id_MsgQueue, i_numProcess);
             ReceiveMessage(id_MsgQueue, nProcesses + 1);
@@ -76,7 +75,6 @@ int CreateProcesses(size_t nProcesses, pid_t* pid, size_t* numProcess,
 
     pid_t* cur_pidsChild = pidsChild + 1;
     for (size_t i_numProcess = 1; i_numProcess <= nProcesses; i_numProcess++) {
-        pid_t pid_parent = getpid();
         errno = 0;
         switch (*pid = fork()) {
             case -1:
@@ -84,8 +82,6 @@ int CreateProcesses(size_t nProcesses, pid_t* pid, size_t* numProcess,
                 return -1;
             case 0:
                 *numProcess = i_numProcess;
-                if(getppid() != pid_parent)
-                    exit(EXIT_FAILURE);
                 break;
             default:
                 *cur_pidsChild = *pid;
@@ -112,6 +108,7 @@ void SendMessage(int msqid, long mtype)
     int ret_msgsnd = msgsnd(msqid, &msgbuf, 0, 0);
     if (ret_msgsnd < 0) {
         perror("Error msgsnd()");
+        DeleteMsq(msqid);
         exit(EXIT_FAILURE);
     }
 }
@@ -128,6 +125,17 @@ void ReceiveMessage(int msqid, long mtype)
     ssize_t res_msgrcv = msgrcv(msqid, &msgbuf, 0, mtype, 0);
     if (res_msgrcv < 0) {
         perror("Error msgrcv()");
+        DeleteMsq(msqid);
         exit(EXIT_FAILURE);
     }
+}
+
+
+void DeleteMsq(int msqid)
+{
+    errno = 0;
+    int ret_msgctl = msgctl(msqid, IPC_RMID, NULL);
+    if (ret_msgctl < 0)
+        perror("Error msgctl()");
+    exit(EXIT_FAILURE);
 }
