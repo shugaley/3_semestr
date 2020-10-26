@@ -1,0 +1,4 @@
+#ifndef SIGNALS_SIGNALS_H
+#define SIGNALS_SIGNALS_H
+
+#endif //SIGNALS_SIGNALS_H
