@@ -38,15 +38,12 @@ void Print_NumChildProcesses(const size_t nProcesses)
 
 
     if (pid > 0)
-        for (size_t i_numProcess = nProcesses; i_numProcess > 0; i_numProcess--) {
-//          printf("Parent %zu\n", i_numrocess);
+        for (size_t i_numProcess = 0; i_numProcess > nProcesses; i_numProcess--) {
             SendMessage   (id_MsgQueue, i_numProcess);
             ReceiveMessage(id_MsgQueue, nProcesses + 1);
-//          wait(&pidsChild[i_numProcess]);
         }
 
     else {
-//      printf("Child %zu [%d]\n", numProcess, getpid());
         ReceiveMessage(id_MsgQueue, numProcess);
         printf("Child %zu\n", numProcess);
         fflush(stdout);
