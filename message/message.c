@@ -7,11 +7,13 @@ struct Msgbuf {
     long mtype;
 };
 
-void CreateProcesses(size_t nProcesses, pid_t* pid, size_t* numProcess,
-                     pid_t* pidsChild);
+int CreateProcesses(size_t nProcesses, pid_t* pid, size_t* numProcess,
+                    pid_t* pidsChild);
 
 void    SendMessage(int msqid, long mtype);
 void ReceiveMessage(int msqid, long mtype);
+void DeleteMsq     (int msqid);
+
 
 //=============================================================================
 
@@ -27,19 +29,25 @@ void Print_NumChildProcesses(const size_t nProcesses)
     pid_t pid = 0;
     size_t numProcess = 0;
     pid_t* pidsChild = (pid_t*)calloc(nProcesses + 1, sizeof(*pidsChild));
-    CreateProcesses(nProcesses, &pid, &numProcess, pidsChild);
+    int ret_CreateProcesses = CreateProcesses(nProcesses, &pid,
+                                              &numProcess, pidsChild);
+    if (ret_CreateProcesses < 0) {
+        DeleteMsq(id_MsgQueue);
+        exit(EXIT_FAILURE);
+    }
+
 
     if (pid > 0)
-        for (size_t i_numProcess = 1; i_numProcess <= nProcesses; i_numProcess++) {
-//          printf("Parent %zu\n", i_numrocess);
+        for (size_t i_numProcess = 0; i_numProcess > nProcesses; i_numProcess--) {
             SendMessage   (id_MsgQueue, i_numProcess);
-            wait(&pidsChild[i_numProcess]);
+            ReceiveMessage(id_MsgQueue, nProcesses + 1);
         }
 
     else {
-//      printf("Child %zu [%d]\n", numProcess, getpid());
         ReceiveMessage(id_MsgQueue, numProcess);
         printf("Child %zu\n", numProcess);
+        fflush(stdout);
+        SendMessage(id_MsgQueue, nProcesses + 1);
         exit(EXIT_SUCCESS);
     }
 
@@ -55,10 +63,9 @@ void Print_NumChildProcesses(const size_t nProcesses)
 
 //-----------------------------------------------------------------------------
 
-void CreateProcesses(size_t nProcesses, pid_t* pid, size_t* numProcess,
+int CreateProcesses(size_t nProcesses, pid_t* pid, size_t* numProcess,
                      pid_t* pidsChild)
 {
-    assert(nProcesses > 0);
     assert(pid);
     assert(numProcess);
     assert(pidsChild);
@@ -66,18 +73,12 @@ void CreateProcesses(size_t nProcesses, pid_t* pid, size_t* numProcess,
     pid_t* cur_pidsChild = pidsChild + 1;
     for (size_t i_numProcess = 1; i_numProcess <= nProcesses; i_numProcess++) {
         errno = 0;
-        pid_t pid_parent = getpid();
         switch (*pid = fork()) {
             case -1:
-                perror("Error fork()");
-                for(size_t j_numProcess = 1; j_numProcess < i_numProcess; j_numProcess++)
-                    kill(pidsChild[j_numProcess], SIGKILL);
-                exit(EXIT_FAILURE);
+                perror("Error fork()\n");
+                return -1;
             case 0:
                 *numProcess = i_numProcess;
-                if(getppid() != pid_parent)
-                    exit(EXIT_FAILURE);
-                prctl(PR_GET_PDEATHSIG, pid);
                 break;
             default:
                 *cur_pidsChild = *pid;
@@ -88,6 +89,8 @@ void CreateProcesses(size_t nProcesses, pid_t* pid, size_t* numProcess,
         if(*numProcess > 0)
             break;
     }
+
+    return 0;
 }
 
 
@@ -98,11 +101,11 @@ void SendMessage(int msqid, long mtype)
 
     struct Msgbuf msgbuf = {mtype};
 
-    //Check size queue???????
     errno = 0;
     int ret_msgsnd = msgsnd(msqid, &msgbuf, 0, 0);
     if (ret_msgsnd < 0) {
         perror("Error msgsnd()");
+        DeleteMsq(msqid);
         exit(EXIT_FAILURE);
     }
 }
@@ -116,9 +119,20 @@ void ReceiveMessage(int msqid, long mtype)
     struct Msgbuf msgbuf = {0};
 
     errno = 0;
-    int res_msgrcv = msgrcv(msqid, &msgbuf, 0, mtype, 0);
+    ssize_t res_msgrcv = msgrcv(msqid, &msgbuf, 0, mtype, 0);
     if (res_msgrcv < 0) {
         perror("Error msgrcv()");
+        DeleteMsq(msqid);
         exit(EXIT_FAILURE);
     }
+}
+
+
+void DeleteMsq(int msqid)
+{
+    errno = 0;
+    int ret_msgctl = msgctl(msqid, IPC_RMID, NULL);
+    if (ret_msgctl < 0)
+        perror("Error msgctl()");
+    exit(EXIT_FAILURE);
 }
