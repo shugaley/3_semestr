@@ -7,16 +7,20 @@
 
 static const size_t N_KEYS  = 2;
 
-char* ScanKeys(const int argc, const char** argv);
+char* ScanKeys(int argc, const char** argv);
 
 
-int main() {
-    printf("Hello, World!\n");
+int main(int argc, char** argv)
+{
+    char* path_input = ScanKeys(argc, argv);
+
+    void TransferDataToChild(const char* path_input);
+
     return 0;
 }
 
 
-char* ScanKeys(const int argc, const char** argv)
+char* ScanKeys(int argc, const char** argv)
 {
     if(argc != N_KEYS) {
         perror("Wrong nKeys");
