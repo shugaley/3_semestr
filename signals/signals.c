@@ -4,20 +4,26 @@
 #include <assert.h>
 #include <errno.h>
 #include <signal.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/prctl.h>
 #include <unistd.h>
 
-#define SIGNALS_USED 1
+
+bool current_bit = 0;
 
 void SendData(const char* path_input);
 void GetData (pid_t pid_child);
 
-void HandleBitZero(int num_signal);
-void HandleBitOne (int num_signal);
+void HandleChild (int num_signal);
+void HandleParent(int num_signal);
 
 void BlockSignals(int flag, const int* signals, size_t nsignals);
+
+const int WITH_SIGNALS    = 1;
+const int WITHOUT_SIGNALS = 2;
+sigset_t CreateSigset(int flag, const int* signals, size_t nsignals);
 
 //=============================================================================
 
@@ -26,10 +32,8 @@ void TransferDataFromChild(const char* path_input)
     assert(path_input);
 
     //block signals which use
-
-    int signals_blocking[SIGNALS_USED] = {SIGUSR1};
-
-    BlockSignals(SIG_BLOCK, signals_blocking, SIGNALS_USED);
+    const int signals_blocking[] = {SIGUSR1, SIGUSR2};
+    BlockSignals(SIG_BLOCK, signals_blocking, sizeof(signals_blocking));
 
     pid_t pid_parent = getpid();
     pid_t pid_child = 0;
@@ -83,8 +87,8 @@ void GetData(pid_t pid_child)
         perror("Error sigfillset()");
         exit(EXIT_FAILURE);
     }
-    sa_one.sa_handler = HandleBitOne;
-    sa_one.sa_flags = SA_NODEFER;
+    sa_one.sa_handler = HandleChild;
+    //sa_one.sa_flags = SA_NODEFER;
 
     errno = 0;
     ret = sigaction(SIGUSR1, &sa_one, NULL);
@@ -93,50 +97,43 @@ void GetData(pid_t pid_child)
         exit(EXIT_FAILURE);
     }
 
-    sigset_t sigset_parent;
-    errno = 0;
-    ret = sigfillset(&sigset_parent);
-    if (ret < 0) {
-        perror("Error sigfillset()");
-        exit(EXIT_FAILURE);
-    }
+    const int signals_get[] = {SIGUSR1, SIGUSR2};
+    sigset_t sigset_get = CreateSigset(WITHOUT_SIGNALS, signals_get,
+                                       sizeof(signals_get));
 
-    errno = 0;
-    ret = sigdelset(&sigset_parent, SIGUSR1);
-    if (ret < 0) {
-        perror("Error sigdelset()");
-        exit(EXIT_FAILURE);
-    }
-
-    sigsuspend(&sigset_parent);
-
-    printf("Parent ready\n");
-
-    while(1);
+    //sigsuspend(&sigset_get);
 }
 
 
-void HandleBitOne(int num_signal)
+
+void HandleChild (int num_signal)
 {
-    printf("SSSSSSSUCK\n");
-}
+    if (num_signal == SIGUSR1) {
 
+        return;
+    }
+
+    if (num_signal == SIGUSR2) {
+        return;
+    }
+}
 
 
 void BlockSignals(int flag, const int* signals, size_t nsignals)
 {
     assert(signals);
 
-    sigset_t sigset_base = {};
+    sigset_t sigset = {};
     errno = 0;
-    int ret = sigemptyset(&sigset_base);
+    int ret = sigemptyset(&sigset);
     if (ret < 0) {
         perror("Error sigemptyset()");
         exit(EXIT_FAILURE);
     }
 
     for (size_t i_signal = 0; i_signal < nsignals; i_signal++) {
-        ret = sigaddset(&sigset_base, signals[i_signal]);
+        errno = 0;
+        ret = sigaddset(&sigset, signals[i_signal]);
         if (ret < 0) {
             perror("Error sigaddset()");
             exit(EXIT_FAILURE);
@@ -144,10 +141,35 @@ void BlockSignals(int flag, const int* signals, size_t nsignals)
     }
 
     errno = 0;
-    ret = sigprocmask(SIG_BLOCK, &sigset_base, NULL);
+    ret = sigprocmask(flag, &sigset, NULL);
     if (ret < 0) {
         perror("Error sigprocmask()");
         exit(EXIT_FAILURE);
     }
 
+}
+
+
+sigset_t CreateSigset(int flag, const int* signals, size_t nsignals)
+{
+    assert(signals);
+
+    sigset_t sigset_get;
+    errno = 0;
+    int ret = sigfillset(&sigset_get);
+    if (ret < 0) {
+        perror("Error sigfillset()");
+        exit(EXIT_FAILURE);
+    }
+
+    for (size_t i_signal = 0; i_signal < nsignals; i_signal++) {
+        errno = 0;
+        ret = sigdelset(&sigset_get, signals[i_signal]);
+        if (ret < 0) {
+            perror("Error sigdelset()");
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    return sigset_get;
 }
