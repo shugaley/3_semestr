@@ -1,5 +1,5 @@
 
-#include "signal.h"
+#include "signals.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -14,7 +14,7 @@ int main(int argc, char** argv)
 {
     char* path_input = ScanKeys(argc, argv);
 
-    void TransferDataToChild(const char* path_input);
+    TransferDataFromChild(path_input);
 
     return 0;
 }
