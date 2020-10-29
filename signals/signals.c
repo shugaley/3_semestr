@@ -11,19 +11,31 @@
 #include <unistd.h>
 
 
+struct Sigaction {
+    int num_signal;
+    struct sigaction* sa;
+    struct sigaction* sa_old;
+};
+
 bool current_bit = 0;
 
 void SendData(const char* path_input);
 void GetData (pid_t pid_child);
 
-void HandleChild (int num_signal);
-void HandleParent(int num_signal);
+void HandleSendData (int num_signal);
+void HandleEmpty    (int num_signal);
+void HandleChildExit(int num_signal);
+
+// Shell funcs {
 
 void BlockSignals(int flag, const int* signals, size_t nsignals);
 
-const int WITH_SIGNALS    = 1;
+//const int WITH_SIGNALS    = 1;
 const int WITHOUT_SIGNALS = 2;
 sigset_t CreateSigset(int flag, const int* signals, size_t nsignals);
+
+void Sigaction(const struct Sigaction* sigactions, size_t nsigactions);
+// } Shell funcs
 
 //=============================================================================
 
@@ -32,7 +44,7 @@ void TransferDataFromChild(const char* path_input)
     assert(path_input);
 
     //block signals which use
-    const int signals_blocking[] = {SIGUSR1, SIGUSR2};
+    int signals_blocking[] = {SIGUSR1, SIGUSR2};
     BlockSignals(SIG_BLOCK, signals_blocking, sizeof(signals_blocking));
 
     pid_t pid_parent = getpid();
@@ -80,24 +92,29 @@ void SendData(const char* path_input)
 
 void GetData(pid_t pid_child)
 {
-    struct sigaction sa_one = {};
+    int ret = 0;
+
+    struct sigaction sa_sigusr = {};
     errno = 0;
-    int ret = sigfillset(&sa_one.sa_mask);
+    ret = sigfillset(&sa_sigusr.sa_mask);
     if (ret < 0) {
         perror("Error sigfillset()");
         exit(EXIT_FAILURE);
     }
-    sa_one.sa_handler = HandleChild;
-    //sa_one.sa_flags = SA_NODEFER;
+    sa_sigusr.sa_handler = HandleSendData;
+    //sa_sigusr.sa_flags = SA_NODEFER;
 
+    struct Sigaction sigactions[] = {SIGUSR1, &sa_sigusr, NULL,
+                                     SIGUSR2, &sa_sigusr, NULL};
+    //TODO array of sigaction and for
     errno = 0;
-    ret = sigaction(SIGUSR1, &sa_one, NULL);
+    ret = sigaction(SIGUSR1, &sa_sigusr, NULL);
     if (ret < 0) {
         perror("Error sigaction()");
         exit(EXIT_FAILURE);
     }
 
-    const int signals_get[] = {SIGUSR1, SIGUSR2};
+    int signals_get[] = {SIGUSR1, SIGUSR2};
     sigset_t sigset_get = CreateSigset(WITHOUT_SIGNALS, signals_get,
                                        sizeof(signals_get));
 
@@ -106,7 +123,7 @@ void GetData(pid_t pid_child)
 
 
 
-void HandleChild (int num_signal)
+void HandleSendData (int num_signal)
 {
     if (num_signal == SIGUSR1) {
 
@@ -118,14 +135,17 @@ void HandleChild (int num_signal)
     }
 }
 
+// Shell funcs {
 
 void BlockSignals(int flag, const int* signals, size_t nsignals)
 {
     assert(signals);
 
+    int ret = 0;
+
     sigset_t sigset = {};
     errno = 0;
-    int ret = sigemptyset(&sigset);
+    ret = sigemptyset(&sigset);
     if (ret < 0) {
         perror("Error sigemptyset()");
         exit(EXIT_FAILURE);
@@ -154,9 +174,11 @@ sigset_t CreateSigset(int flag, const int* signals, size_t nsignals)
 {
     assert(signals);
 
+    int ret = 0;
+
     sigset_t sigset_get;
     errno = 0;
-    int ret = sigfillset(&sigset_get);
+    ret = sigfillset(&sigset_get);
     if (ret < 0) {
         perror("Error sigfillset()");
         exit(EXIT_FAILURE);
@@ -173,3 +195,20 @@ sigset_t CreateSigset(int flag, const int* signals, size_t nsignals)
 
     return sigset_get;
 }
+
+void Sigaction(const struct Sigaction* sigactions, size_t nsigactions)
+{
+    assert(sigactions);
+
+    for (size_t i_sa = 0; i_sa < nsigactions; i_sa++) {
+        errno = 0;
+        int ret = sigaction(sigactions->num_signal, sigactions->sa,
+                                                    sigactions->sa_old);
+        if (ret < 0) {
+            perror("Error sigaction()");
+            exit(EXIT_FAILURE);
+        }
+    }
+}
+
+// } Shell funcs
