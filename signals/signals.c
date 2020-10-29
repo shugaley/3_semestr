@@ -47,7 +47,9 @@ void TransferDataFromChild(const char* path_input)
 
     //block signals which use
     int signals_blocking[] = {SIGUSR1, SIGUSR2};
-    BlockSignals(SIG_BLOCK, signals_blocking, sizeof(signals_blocking));
+    size_t nsignals_blocking = sizeof(signals_blocking) /
+                               sizeof(*signals_blocking);
+    BlockSignals(SIG_BLOCK, signals_blocking, nsignals_blocking);
 
     pid_t pid_parent = getpid();
     pid_t pid_child = 0;
@@ -86,35 +88,44 @@ void SendData(const char* path_input)
 
     pid_t pid_parent = getppid();
 
-    errno = 0;
-    FILE* input = fopen(path_input, "r");
-    if (input < 0) {
-        perror("Error fopen()");
-        exit(EXIT_FAILURE);
-    }
+//    errno = 0;
+//    FILE* input = fopen(path_input, "r");
+//    if (input < 0) {
+//        perror("Error fopen()");
+//        exit(EXIT_FAILURE);
+//    }
+//
+//    char input_char = 0;
+//    errno = 0;
+//    while ((input_char = (char)fgetc(input) != EOF))
+//
+//        for (size_t i_bit = 0; i_bit < sizeof(char) * 8; i_bit++) {
+//            char mask = 0b01 << i_bit;
+//
+//            int ret_kill = 0;
+//            errno = 0;
+//            if (mask & input_char)
+//                ret_kill = kill(pid_parent, SIGUSR1);
+//            else
+//                ret_kill = kill(pid_parent, SIGUSR2);
+//
+//            if (ret_kill < 0) {
+//                perror("Error kill()");
+//                exit(EXIT_FAILURE);
+//            }
+//        }
+//
+//    if (errno != 0) {
+//        perror("Error fgetc()");
+//        exit(EXIT_FAILURE);
+//    }
 
-    char input_char = 0;
-    errno = 0;
-    while ((input_char = (char)fgetc(input) != EOF))
-
-        for (size_t i_bit = 0; i_bit < sizeof(char) * 8; i_bit++) {
-            char mask = 0b01 << i_bit;
 
 
+//    printf("Child kill\n");
+//    kill(pid_parent, SIGUSR1);
 
-        }
-
-    if (errno != 0) {
-        perror("Error fgetc()");
-        exit(EXIT_FAILURE);
-    }
-
-
-
-    printf("Child kill\n");
-    kill(pid_parent, SIGUSR1);
-
-    fclose(input);
+//    fclose(input);
 }
 
 
@@ -124,13 +135,15 @@ void GetData(pid_t pid_child)
 
     struct SigactionUnion sigactions[] = {SIGUSR1, &sa_SendData, NULL,
                                           SIGUSR2, &sa_SendData, NULL};
-    Sigaction(sigactions, sizeof(sigactions));
+    size_t nsigactions = sizeof(sigactions) /
+                         sizeof(*sigactions);
+    Sigaction(sigactions, nsigactions);
 
     int signals_get[] = {SIGUSR1, SIGUSR2};
-    sigset_t sigset_get = CreateSigset(WITHOUT_SIGNALS, signals_get,
-                                       sizeof(signals_get));
+    size_t nsignals_get = sizeof(signals_get) / sizeof(*signals_get);
+    sigset_t sigset_get = CreateSigset(WITHOUT_SIGNALS, signals_get, nsignals_get);
 
-    //sigsuspend(&sigset_get);
+    sigsuspend(&sigset_get);
 }
 
 
@@ -138,7 +151,6 @@ void GetData(pid_t pid_child)
 void HandleSendData (int num_signal)
 {
     if (num_signal == SIGUSR1) {
-
         return;
     }
 
