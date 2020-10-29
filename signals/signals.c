@@ -11,7 +11,7 @@
 #include <unistd.h>
 
 
-struct Sigaction {
+struct Sigaction_t {
     int num_signal;
     struct sigaction* sa;
     struct sigaction* sa_old;
@@ -34,7 +34,7 @@ void BlockSignals(int flag, const int* signals, size_t nsignals);
 const int WITHOUT_SIGNALS = 2;
 sigset_t CreateSigset(int flag, const int* signals, size_t nsignals);
 
-void Sigaction(const struct Sigaction* sigactions, size_t nsigactions);
+void Sigaction(const struct Sigaction_t* sigactions, size_t nsigactions);
 // } Shell funcs
 
 //=============================================================================
@@ -104,15 +104,9 @@ void GetData(pid_t pid_child)
     sa_sigusr.sa_handler = HandleSendData;
     //sa_sigusr.sa_flags = SA_NODEFER;
 
-    struct Sigaction sigactions[] = {SIGUSR1, &sa_sigusr, NULL,
-                                     SIGUSR2, &sa_sigusr, NULL};
-    //TODO array of sigaction and for
-    errno = 0;
-    ret = sigaction(SIGUSR1, &sa_sigusr, NULL);
-    if (ret < 0) {
-        perror("Error sigaction()");
-        exit(EXIT_FAILURE);
-    }
+    struct Sigaction_t sigactions[] = {SIGUSR1, &sa_sigusr, NULL,
+                                       SIGUSR2, &sa_sigusr, NULL};
+    Sigaction(sigactions, sizeof(sigactions));
 
     int signals_get[] = {SIGUSR1, SIGUSR2};
     sigset_t sigset_get = CreateSigset(WITHOUT_SIGNALS, signals_get,
@@ -196,7 +190,7 @@ sigset_t CreateSigset(int flag, const int* signals, size_t nsignals)
     return sigset_get;
 }
 
-void Sigaction(const struct Sigaction* sigactions, size_t nsigactions)
+void Sigaction(const struct Sigaction_t* sigactions, size_t nsigactions)
 {
     assert(sigactions);
 
