@@ -11,7 +11,7 @@
 #include <unistd.h>
 
 
-struct Sigaction_t {
+struct SigactionUnion {
     int num_signal;
     struct sigaction* sa;
     struct sigaction* sa_old;
@@ -30,11 +30,13 @@ void HandleChildExit(int num_signal);
 
 void BlockSignals(int flag, const int* signals, size_t nsignals);
 
-//const int WITH_SIGNALS    = 1;
+const int WITH_SIGNALS    = 1;
 const int WITHOUT_SIGNALS = 2;
 sigset_t CreateSigset(int flag, const int* signals, size_t nsignals);
 
-void Sigaction(const struct Sigaction_t* sigactions, size_t nsigactions);
+struct sigaction CreateSigactionBase(void (*handler)(int));
+
+void Sigaction(const struct SigactionUnion* sigactions, size_t nsigactions);
 // } Shell funcs
 
 //=============================================================================
@@ -82,30 +84,46 @@ void SendData(const char* path_input)
 {
     assert(path_input);
 
-    sleep(5);
-
     pid_t pid_parent = getppid();
+
+    errno = 0;
+    FILE* input = fopen(path_input, "r");
+    if (input < 0) {
+        perror("Error fopen()");
+        exit(EXIT_FAILURE);
+    }
+
+    char input_char = 0;
+    errno = 0;
+    while ((input_char = (char)fgetc(input) != EOF))
+
+        for (size_t i_bit = 0; i_bit < sizeof(char) * 8; i_bit++) {
+            char mask = 0b01 << i_bit;
+
+
+
+        }
+
+    if (errno != 0) {
+        perror("Error fgetc()");
+        exit(EXIT_FAILURE);
+    }
+
+
+
     printf("Child kill\n");
     kill(pid_parent, SIGUSR1);
+
+    fclose(input);
 }
 
 
 void GetData(pid_t pid_child)
 {
-    int ret = 0;
+    struct sigaction sa_SendData = CreateSigactionBase(HandleSendData);
 
-    struct sigaction sa_sigusr = {};
-    errno = 0;
-    ret = sigfillset(&sa_sigusr.sa_mask);
-    if (ret < 0) {
-        perror("Error sigfillset()");
-        exit(EXIT_FAILURE);
-    }
-    sa_sigusr.sa_handler = HandleSendData;
-    //sa_sigusr.sa_flags = SA_NODEFER;
-
-    struct Sigaction_t sigactions[] = {SIGUSR1, &sa_sigusr, NULL,
-                                       SIGUSR2, &sa_sigusr, NULL};
+    struct SigactionUnion sigactions[] = {SIGUSR1, &sa_SendData, NULL,
+                                          SIGUSR2, &sa_SendData, NULL};
     Sigaction(sigactions, sizeof(sigactions));
 
     int signals_get[] = {SIGUSR1, SIGUSR2};
@@ -190,7 +208,26 @@ sigset_t CreateSigset(int flag, const int* signals, size_t nsignals)
     return sigset_get;
 }
 
-void Sigaction(const struct Sigaction_t* sigactions, size_t nsigactions)
+
+struct sigaction CreateSigactionBase(void (*handler)(int))
+{
+    assert(handler);
+
+    struct sigaction sa = {};
+    errno = 0;
+    int ret = sigfillset(&sa.sa_mask);
+    if (ret < 0) {
+        perror("Error sigfillset()");
+        exit(EXIT_FAILURE);
+    }
+    sa.sa_handler = handler;
+    //sa_SendData.sa_flags = SA_NODEFER;
+
+    return sa;
+}
+
+
+void Sigaction(const struct SigactionUnion* sigactions, size_t nsigactions)
 {
     assert(sigactions);
 
