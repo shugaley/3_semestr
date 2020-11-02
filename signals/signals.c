@@ -18,8 +18,7 @@ struct SigactionUnion {
     struct sigaction* sa_old;
 };
 
-char current_mask = 0;
-char output_char  = 0;
+volatile bool current_bit  = 0;
 
 void SendData(const char* path_input);
 void GetData (pid_t pid_child);
@@ -33,8 +32,6 @@ void HandleChildExit(int num_signal);
 const bool WITH_SIGNALS    = 1;
 const bool WITHOUT_SIGNALS = 0;
 sigset_t CreateSigset(const int* signals, size_t nsignals, bool isWithSignals);
-
-struct sigaction CreateSigactionBase(void (*handler)(int));
 
 void Sigaction(const struct SigactionUnion* sigactions, size_t nsigactions);
 // } Shell funcs
@@ -92,7 +89,15 @@ void SendData(const char* path_input)
 {
     assert(path_input);
 
-    struct sigaction sa_empty = CreateSigactionBase(HandleEmpty);
+    struct sigaction sa_empty = {};
+    errno = 0;
+    int ret = sigfillset(&sa_empty.sa_mask);
+    if (ret < 0) {
+        perror("Error sigfillset()");
+        exit(EXIT_FAILURE);
+    }
+    sa_empty.sa_handler = HandleEmpty;
+    sa_empty.sa_flags = SA_NODEFER;
 
     struct SigactionUnion sigactions[] = {SIGUSR1, &sa_empty, NULL};
     size_t nsigactions = sizeof(sigactions) / sizeof(*sigactions);
@@ -114,7 +119,7 @@ void SendData(const char* path_input)
     while ((input_char = (char)fgetc(input)) != EOF)
 
         for (size_t i_bit = 0; i_bit < CHAR_BIT; i_bit++) {
-            current_mask = 0b01 << i_bit;
+            char current_mask = 0b01 << i_bit;
 
             pid_t pid_parent = getppid();
 
@@ -155,7 +160,15 @@ void SendData(const char* path_input)
 
 void GetData(pid_t pid_child)
 {
-    struct sigaction sa_SendData = CreateSigactionBase(HandleSendData);
+    struct sigaction sa_SendData = {};
+    errno = 0;
+    int ret = sigfillset(&sa_SendData.sa_mask);
+    if (ret < 0) {
+        perror("Error sigfillset()");
+        exit(EXIT_FAILURE);
+    }
+    sa_SendData.sa_handler = HandleSendData;
+    sa_SendData.sa_flags = SA_NODEFER;
 
     struct SigactionUnion sigactions[] = {SIGUSR1, &sa_SendData, NULL,
                                           SIGUSR2, &sa_SendData, NULL};
@@ -167,35 +180,42 @@ void GetData(pid_t pid_child)
     sigset_t sigset_get = CreateSigset(signals_get, nsignals_get, WITHOUT_SIGNALS);
 
     while (1) {
-        errno = 0;
-        //printf("parent sigsuspend\n");
-        sigsuspend(&sigset_get);
-        if (errno != EINTR) {
-            perror("Error sigsuspend()");
-            exit(EXIT_FAILURE);
-        }
+        char output_char = 0;
+        for (size_t i_bit = 0; i_bit < CHAR_BIT; i_bit++) {
+            char current_mask = 0b01 << i_bit;
 
-        //printf("parent kill\n");
-        kill(pid_child, SIGUSR1);
+            errno = 0;
+            //printf("parent sigsuspend\n");
+            sigsuspend(&sigset_get);
+            if (errno != EINTR) {
+                perror("Error sigsuspend()");
+                exit(EXIT_FAILURE);
+            }
 
-        char max_bit = (char)(0b01 << (CHAR_BIT - 1));
-        if (current_mask == max_bit) {
-            printf("%c", output_char);
-            fflush(stdout);
-            output_char = 0;
+            //printf("parent kill\n");
+            if (current_bit == 1)
+                output_char = output_char | current_mask;
+
+            int ret = kill(pid_child, SIGUSR1);
+            if (ret < 0) {
+                perror("Error kill()");
+                exit(EXIT_FAILURE);
+            }
         }
+        printf("%c", output_char);
+        fflush(stdout);
     }
-//    sigsuspend(&sigset_get);
-//    kill(pid_child, SIGUSR1);
 }
 
 
 
 void HandleSendData(int num_signal)
 {
-    printf("Num_signal %d\n", num_signal);
     if (num_signal == SIGUSR1)
-        output_char = output_char | current_mask;
+        current_bit = 1;
+
+    if (num_signal == SIGUSR2)
+        current_bit = 0;
 }
 
 void HandleEmpty(int num_signal)
@@ -235,24 +255,6 @@ sigset_t CreateSigset(const int* signals, size_t nsignals, bool isWithSignals)
     }
 
     return sigset;
-}
-
-
-struct sigaction CreateSigactionBase(void (*handler)(int))
-{
-    assert(handler);
-
-    struct sigaction sa = {};
-    errno = 0;
-    int ret = sigfillset(&sa.sa_mask);
-    if (ret < 0) {
-        perror("Error sigfillset()");
-        exit(EXIT_FAILURE);
-    }
-    sa.sa_handler = handler;
-    sa.sa_flags = SA_NODEFER;
-
-    return sa;
 }
 
 
