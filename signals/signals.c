@@ -23,9 +23,9 @@ volatile bool current_bit  = 0;
 void SendData(const char* path_input);
 void GetData (pid_t pid_child);
 
-void HandleSendData (int num_signal);
-void HandleEmpty    (int num_signal);
-void HandleChildExit(int num_signal);
+void HandleGetData(int num_signal);
+void HandleEmpty       (int num_signal);
+void HandleSigchld     (int num_signal);
 
 // Shell funcs {
 
@@ -33,7 +33,6 @@ const bool WITH_SIGNALS    = 1;
 const bool WITHOUT_SIGNALS = 0;
 sigset_t CreateSigset(const int* signals, size_t nsignals, bool isWithSignals);
 
-void Sigaction(const struct SigactionUnion* sigactions, size_t nsigactions);
 // } Shell funcs
 
 //=============================================================================
@@ -99,9 +98,12 @@ void SendData(const char* path_input)
     sa_empty.sa_handler = HandleEmpty;
     sa_empty.sa_flags = SA_NODEFER;
 
-    struct SigactionUnion sigactions[] = {SIGUSR1, &sa_empty, NULL};
-    size_t nsigactions = sizeof(sigactions) / sizeof(*sigactions);
-    Sigaction(sigactions, nsigactions);
+    errno = 0;
+    ret = sigaction(SIGUSR1, &sa_empty, NULL);
+    if (ret < 0) {
+        perror("Error sigaction()");
+        exit(EXIT_FAILURE);
+    }
 
     int signals_send[] = {SIGUSR1, SIGTERM, SIGINT};
     size_t nsignals_send = sizeof(signals_send) / sizeof(*signals_send);
@@ -144,12 +146,10 @@ void SendData(const char* path_input)
             errno = 0;
             //printf("child after suspend\n");
         }
-
     if (errno != 0) {
         perror("Error fgetc()");
         exit(EXIT_FAILURE);
     }
-    sleep(10);
 
 //    printf("Child kill\n");
 //    kill(getppid(), SIGUSR1);
@@ -160,22 +160,30 @@ void SendData(const char* path_input)
 
 void GetData(pid_t pid_child)
 {
-    struct sigaction sa_SendData = {};
+    struct sigaction sa_GetData = {};
     errno = 0;
-    int ret = sigfillset(&sa_SendData.sa_mask);
+    int ret = sigfillset(&sa_GetData.sa_mask);
     if (ret < 0) {
         perror("Error sigfillset()");
         exit(EXIT_FAILURE);
     }
-    sa_SendData.sa_handler = HandleSendData;
-    sa_SendData.sa_flags = SA_NODEFER;
+    sa_GetData.sa_handler = HandleGetData;
+    sa_GetData.sa_flags = SA_NODEFER;
 
-    struct SigactionUnion sigactions[] = {SIGUSR1, &sa_SendData, NULL,
-                                          SIGUSR2, &sa_SendData, NULL};
-    size_t nsigactions = sizeof(sigactions) / sizeof(*sigactions);
-    Sigaction(sigactions, nsigactions);
+    errno = 0;
+    ret = sigaction(SIGUSR1, &sa_GetData, NULL);
+    if (ret < 0) {
+        perror("Error sigaction()");
+        exit(EXIT_FAILURE);
+    }
+    errno = 0;
+    ret = sigaction(SIGUSR2, &sa_GetData, NULL);
+    if (ret < 0) {
+        perror("Error sigaction()");
+        exit(EXIT_FAILURE);
+    }
 
-    int signals_get[] = {SIGUSR1, SIGUSR2, SIGINT};
+    int signals_get[] = {SIGUSR1, SIGUSR2, SIGCHLD, SIGTERM, SIGINT};
     size_t nsignals_get = sizeof(signals_get) / sizeof(*signals_get);
     sigset_t sigset_get = CreateSigset(signals_get, nsignals_get, WITHOUT_SIGNALS);
 
@@ -196,7 +204,8 @@ void GetData(pid_t pid_child)
             if (current_bit == 1)
                 output_char = output_char | current_mask;
 
-            int ret = kill(pid_child, SIGUSR1);
+            errno = 0;
+            ret = kill(pid_child, SIGUSR1);
             if (ret < 0) {
                 perror("Error kill()");
                 exit(EXIT_FAILURE);
@@ -209,7 +218,7 @@ void GetData(pid_t pid_child)
 
 
 
-void HandleSendData(int num_signal)
+void HandleGetData(int num_signal)
 {
     if (num_signal == SIGUSR1)
         current_bit = 1;
@@ -221,6 +230,11 @@ void HandleSendData(int num_signal)
 void HandleEmpty(int num_signal)
 {
     return;
+}
+
+void HandleSigchld(int num_signal)
+{
+
 }
 
 // Shell funcs {
@@ -255,22 +269,6 @@ sigset_t CreateSigset(const int* signals, size_t nsignals, bool isWithSignals)
     }
 
     return sigset;
-}
-
-
-void Sigaction(const struct SigactionUnion* sigactions, size_t nsigactions)
-{
-    assert(sigactions);
-
-    for (size_t i_sa = 0; i_sa < nsigactions; i_sa++) {
-        errno = 0;
-        int ret = sigaction(sigactions[i_sa].num_signal, sigactions[i_sa].sa,
-                                                    sigactions[i_sa].sa_old);
-        if (ret < 0) {
-            perror("Error sigaction()");
-            exit(EXIT_FAILURE);
-        }
-    }
 }
 
 // } Shell funcs
