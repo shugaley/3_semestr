@@ -9,23 +9,24 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/prctl.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 
-struct SigactionUnion {
-    int num_signal;
-    struct sigaction* sa;
-    struct sigaction* sa_old;
-};
-
 volatile bool current_bit  = 0;
+volatile bool isChildDied  = false;
 
 void SendData(const char* path_input);
 void GetData (pid_t pid_child);
 
-void HandleGetData(int num_signal);
-void HandleEmpty       (int num_signal);
-void HandleSigchld     (int num_signal);
+// Handlers {
+
+void HandleGetData   (int num_signal);
+void HandleEmpty     (int num_signal);
+void HandleParentDied(int num_signal);
+void HandleSigchld   (int num_signal);
+
+// } Handlers
 
 // Shell funcs {
 
@@ -41,8 +42,8 @@ void TransferDataFromChild(const char* path_input)
 {
     assert(path_input);
 
-    //block signals which use
-    int signals_block[] = {SIGUSR1, SIGUSR2};
+    //block signals
+    int signals_block[] = {SIGUSR1, SIGUSR2, SIGCHLD};
     size_t nsignals_block = sizeof( signals_block) / sizeof(*signals_block);
     sigset_t sigset_block = CreateSigset(signals_block, nsignals_block, WITH_SIGNALS);
 
@@ -88,6 +89,7 @@ void SendData(const char* path_input)
 {
     assert(path_input);
 
+    //SIGUSR1
     struct sigaction sa_empty = {};
     errno = 0;
     int ret = sigfillset(&sa_empty.sa_mask);
@@ -96,10 +98,28 @@ void SendData(const char* path_input)
         exit(EXIT_FAILURE);
     }
     sa_empty.sa_handler = HandleEmpty;
-    sa_empty.sa_flags = SA_NODEFER;
+    sa_empty.sa_flags   = SA_NODEFER;
 
     errno = 0;
     ret = sigaction(SIGUSR1, &sa_empty, NULL);
+    if (ret < 0) {
+        perror("Error sigaction()");
+        exit(EXIT_FAILURE);
+    }
+
+    //SIGTERM
+    struct sigaction sa_ParentDied = {};
+    errno = 0;
+    ret = sigfillset(&sa_ParentDied.sa_mask);
+    if (ret < 0) {
+        perror("Error sigfillset()");
+        exit(EXIT_FAILURE);
+    }
+    sa_ParentDied.sa_handler = HandleParentDied;
+    sa_ParentDied.sa_flags   = SA_NODEFER;
+
+    errno = 0;
+    ret = sigaction(SIGTERM, &sa_ParentDied, NULL);
     if (ret < 0) {
         perror("Error sigaction()");
         exit(EXIT_FAILURE);
@@ -151,24 +171,40 @@ void SendData(const char* path_input)
         exit(EXIT_FAILURE);
     }
 
-//    printf("Child kill\n");
-//    kill(getppid(), SIGUSR1);
-
     fclose(input);
 }
 
 
 void GetData(pid_t pid_child)
 {
+    //SIGCHLD
+    struct sigaction sa_sigchld = {};
+    errno = 0;
+    int ret = sigfillset(&sa_sigchld.sa_mask);
+    if (ret < 0) {
+        perror("Error sigfillset()");
+        exit(EXIT_FAILURE);
+    }
+    sa_sigchld.sa_handler = HandleSigchld;
+    sa_sigchld.sa_flags   = SA_NOCLDSTOP;
+
+    errno = 0;
+    ret = sigaction(SIGCHLD, &sa_sigchld, NULL);
+    if (ret < 0) {
+        perror("Error sigaction()");
+        exit(EXIT_FAILURE);
+    }
+
+    //SIGUSR1, SIGUSR2
     struct sigaction sa_GetData = {};
     errno = 0;
-    int ret = sigfillset(&sa_GetData.sa_mask);
+    ret = sigfillset(&sa_GetData.sa_mask);
     if (ret < 0) {
         perror("Error sigfillset()");
         exit(EXIT_FAILURE);
     }
     sa_GetData.sa_handler = HandleGetData;
-    sa_GetData.sa_flags = SA_NODEFER;
+    sa_GetData.sa_flags   = SA_NODEFER;
 
     errno = 0;
     ret = sigaction(SIGUSR1, &sa_GetData, NULL);
@@ -190,6 +226,7 @@ void GetData(pid_t pid_child)
     while (1) {
         char output_char = 0;
         for (size_t i_bit = 0; i_bit < CHAR_BIT; i_bit++) {
+
             char current_mask = 0b01 << i_bit;
 
             errno = 0;
@@ -199,8 +236,9 @@ void GetData(pid_t pid_child)
                 perror("Error sigsuspend()");
                 exit(EXIT_FAILURE);
             }
+            if (isChildDied == true)
+                return;
 
-            //printf("parent kill\n");
             if (current_bit == 1)
                 output_char = output_char | current_mask;
 
@@ -216,7 +254,7 @@ void GetData(pid_t pid_child)
     }
 }
 
-
+// Handlers {
 
 void HandleGetData(int num_signal)
 {
@@ -232,10 +270,33 @@ void HandleEmpty(int num_signal)
     return;
 }
 
+void HandleParentDied(int num_signal)
+{
+    fprintf(stderr, "Parent is died\n");
+    exit(EXIT_FAILURE);
+}
+
 void HandleSigchld(int num_signal)
 {
+    int status = 0;
+    errno = 0;
+    pid_t pid_child = waitpid(-1, &status, WNOHANG);
+    if (pid_child < 0) {
+        perror("Error waitpid()");
+        exit(EXIT_FAILURE);
+    }
 
+    if (WIFEXITED(status)) {
+        isChildDied = true;
+        return;
+    }
+    else {
+        fprintf(stderr, "Error child with exit code %d", WEXITSTATUS(status));
+        exit(EXIT_FAILURE);
+    }
 }
+
+// } Handlers
 
 // Shell funcs {
 
