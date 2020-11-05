@@ -62,7 +62,7 @@ void TransferDataFromChild(const char* path_input)
         perror("Error fork()");
         exit(EXIT_FAILURE);
 
-    case 0: {
+    case 0:
         ret = prctl(PR_SET_PDEATHSIG, SIGTERM);
         if (ret < 0) {
             perror("Error ret()");
@@ -74,7 +74,6 @@ void TransferDataFromChild(const char* path_input)
         }
         SendData(path_input);
         exit(EXIT_SUCCESS);
-    }
 
     default:
         GetData(pid_child);
