@@ -12,14 +12,21 @@
 
 
 struct Connect {
+    size_t size_buffer;
+    int fr_writer;
+    int fd_reader;
 
 };
 
 struct InfoChild {
     size_t numChild;
     pid_t  pid_child;
-
+    int fd_writers[2];
+    int fd_readers[2];
 };
+
+
+struct InfoChild* MakeInfoChilds(size_t nChilds);
 
 size_t CountSizeBuffer(size_t maxsize, size_t iChild, size_t nChild);
 
@@ -28,21 +35,21 @@ void ProxyChilds(const char* path_input, size_t nChilds)
 {
     assert(path_input);
 
-    struct InfoChild* infoConnects =
-            (struct InfoChild*)calloc(nChilds * 2, sizeof(*infoConnects));
+    struct InfoChild* infoChilds = (struct InfoChild*)calloc(nChilds * 2,
+                                                             sizeof(*infoChilds));
 
     for (size_t iChild = 0; iChild < nChilds; iChild++) {
         int ret = 0;
 
 //        //create pipe
 //        errno = 0;
-//        ret = pipe(infoConnects[iChild].fdpipe_input);
+//        ret = pipe(infoChilds[iChild].fdpipe_input);
 //        if (ret < 0) {
 //            perror("Error pipe");
 //            exit(EXIT_FAILURE);
 //        }
 //        errno = 0;
-//        ret = pipe(infoConnects[iChild].fdpipe_ouput);
+//        ret = pipe(infoChilds[iChild].fdpipe_ouput);
 //        if (ret < 0) {
 //            perror("Error pipe");
 //            exit(EXIT_FAILURE);
