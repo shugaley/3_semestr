@@ -1,6 +1,7 @@
 
 #include <assert.h>
 #include <errno.h>
+#include <math.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -78,5 +79,8 @@ void ProxyChilds(const char* path_input, size_t nChilds)
 
 size_t CountSizeBuffer(size_t maxsize, size_t iChild, size_t nChild)
 {
-
+    size_t size = pow(3, (double)(nChild - iChild)) * 1024;
+    return size;
 }
+
+
