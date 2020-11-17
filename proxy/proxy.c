@@ -11,23 +11,26 @@
 #include "proxy.h"
 
 
-struct Connect {
+struct InfoConnection {
+    char*  buffer;
     size_t size_buffer;
-    int fr_writer;
-    int fd_reader;
-
+    int    fr_writer;
+    int    fd_reader;
 };
 
 struct InfoChild {
     size_t numChild;
     pid_t  pid_child;
-    int fd_writers[2];
-    int fd_readers[2];
+
+    int    fd_writers[2];
+    int    fd_readers[2];
 };
 
 
-struct InfoChild* MakeInfoChilds(size_t nChilds);
+void ProxyParent();
+void ProxyChild();
 
+void MakeConnectionPipes(struct InfoChild* infoChild);
 size_t CountSizeBuffer(size_t maxsize, size_t iChild, size_t nChild);
 
 
@@ -37,23 +40,11 @@ void ProxyChilds(const char* path_input, size_t nChilds)
 
     struct InfoChild* infoChilds = (struct InfoChild*)calloc(nChilds * 2,
                                                              sizeof(*infoChilds));
-
     for (size_t iChild = 0; iChild < nChilds; iChild++) {
         int ret = 0;
 
-//        //create pipe
-//        errno = 0;
-//        ret = pipe(infoChilds[iChild].fdpipe_input);
-//        if (ret < 0) {
-//            perror("Error pipe");
-//            exit(EXIT_FAILURE);
-//        }
-//        errno = 0;
-//        ret = pipe(infoChilds[iChild].fdpipe_ouput);
-//        if (ret < 0) {
-//            perror("Error pipe");
-//            exit(EXIT_FAILURE);
-//        }
+        MakeConnectionPipes(&infoChilds[iChild]);
+        infoChilds[iChild].numChild  = iChild;
 
         //fork()
         pid_t pid_child = 0;
@@ -74,15 +65,44 @@ void ProxyChilds(const char* path_input, size_t nChilds)
                 perror("Error parent process");
                 exit(EXIT_FAILURE);
             }
-
+            break;
         default:
-            ;
+            infoChilds[iChild].pid_child = pid_child;
+        }
+
+        if (pid_child == 0) {
+            ProxyChild();
+            break;
         }
     }
 
+    ProxyParent();
 
-
+    free(infoChilds);
 }
+
+
+void MakeConnectionPipes(struct InfoChild* infoChild)
+{
+    assert(infoChild);
+
+    int ret = 0;
+
+    errno = 0;
+    ret = pipe(infoChild->fd_readers);
+    if (ret < 0) {
+        perror("Error pipe");
+        exit(EXIT_FAILURE);
+    }
+
+    errno = 0;
+    ret = pipe(infoChild->fd_writers);
+    if (ret < 0) {
+        perror("Error pipe");
+        exit(EXIT_FAILURE);
+    }
+}
+
 
 size_t CountSizeBuffer(size_t maxsize, size_t iChild, size_t nChild)
 {
