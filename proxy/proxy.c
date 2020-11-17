@@ -3,6 +3,7 @@
 #include <errno.h>
 #include <math.h>
 #include <signal.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/prctl.h>
@@ -22,17 +23,21 @@ struct InfoChild {
     size_t numChild;
     pid_t  pid_child;
 
-    int    fd_writers[2];
-    int    fd_readers[2];
+    int    fd_to_parent[2];
+    int    fd_from_parent[2];
 };
 
 
 void ProxyParent();
 void ProxyChild();
 
-void MakeConnectionPipes(struct InfoChild* infoChild);
+void MakeConnectionPipes(struct InfoChild* infoChild, size_t iChild,
+                                                      size_t nChilds);
+void CloseRedundantPipes(bool isChild, struct InfoChild* infoChild);
+
 size_t CountSizeBuffer(size_t maxsize, size_t iChild, size_t nChild);
 
+//-----------------------------------------------------------------------------
 
 void ProxyChilds(const char* path_input, size_t nChilds)
 {
@@ -40,15 +45,17 @@ void ProxyChilds(const char* path_input, size_t nChilds)
 
     struct InfoChild* infoChilds = (struct InfoChild*)calloc(nChilds * 2,
                                                              sizeof(*infoChilds));
-    for (size_t iChild = 0; iChild < nChilds; iChild++) {
+    bool isChild = false;
+    for (size_t iChild = 0; iChild < nChilds && !isChild; iChild++) {
         int ret = 0;
 
-        MakeConnectionPipes(&infoChilds[iChild]);
+        MakeConnectionPipes(&infoChilds[iChild], iChild, nChilds);
         infoChilds[iChild].numChild  = iChild;
 
         //fork()
         pid_t pid_child = 0;
         pid_t pid_parent = getpid();
+
         errno = 0;
         switch (pid_child = fork()) {
         case -1:
@@ -65,41 +72,103 @@ void ProxyChilds(const char* path_input, size_t nChilds)
                 perror("Error parent process");
                 exit(EXIT_FAILURE);
             }
+            isChild = true;
             break;
         default:
             infoChilds[iChild].pid_child = pid_child;
         }
 
-        if (pid_child == 0) {
-            ProxyChild();
-            break;
-        }
+        CloseRedundantPipes(isChild, &infoChilds[iChild]);
     }
 
-    ProxyParent();
+    if (isChild)
+        ProxyChild();
+    else
+        ProxyParent();
 
     free(infoChilds);
 }
 
+//-----------------------------------------------------------------------------
 
-void MakeConnectionPipes(struct InfoChild* infoChild)
+void MakeConnectionPipes(struct InfoChild* infoChild, size_t iChild,
+                                                      size_t nChilds)
 {
     assert(infoChild);
 
     int ret = 0;
 
     errno = 0;
-    ret = pipe(infoChild->fd_readers);
+    ret = pipe(infoChild->fd_from_parent);
     if (ret < 0) {
         perror("Error pipe");
         exit(EXIT_FAILURE);
     }
 
     errno = 0;
-    ret = pipe(infoChild->fd_writers);
+    ret = pipe(infoChild->fd_to_parent);
     if (ret < 0) {
         perror("Error pipe");
         exit(EXIT_FAILURE);
+    }
+
+    if (iChild == 0) {
+        errno = 0;
+        ret = close(infoChild->fd_from_parent[0]);
+        if (ret < 0) {
+            perror("Error close");
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    if (iChild == nChilds - 1) {
+        errno = 0;
+        ret = close(infoChild->fd_to_parent[1]);
+        if (ret < 0) {
+            perror("Error close");
+            exit(EXIT_FAILURE);
+        }
+    }
+}
+
+
+void CloseRedundantPipes (bool isChild, struct InfoChild* infoChild)
+{
+    assert(infoChild);
+
+    int ret = 0;
+    bool isParent = !isChild;
+
+    if (isParent) {
+        errno  = 0;
+        ret = close(infoChild->fd_from_parent[0]);
+        if (ret < 0) {
+            perror("Error close");
+            exit(EXIT_FAILURE);
+        }
+
+        errno = 0;
+        ret = close(infoChild->fd_to_parent[1]);
+        if (ret < 0) {
+            perror("Error close");
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    if (isChild) {
+        errno = 0;
+        ret = close(infoChild->fd_from_parent[1]);
+        if (ret < 0) {
+            perror("Error close");
+            exit(EXIT_FAILURE);
+        }
+
+        errno = 0;
+        ret = close(infoChild->fd_to_parent[0]);
+        if (ret < 0) {
+            perror("Error close");
+            exit(EXIT_FAILURE);
+        }
     }
 }
 
