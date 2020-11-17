@@ -28,11 +28,11 @@ struct InfoChild {
 };
 
 
+void ProxyChild(const char* path_input, struct InfoChild* infoChild,
+                size_t iChild, size_t nChilds);
 void ProxyParent();
-void ProxyChild();
 
-void MakeConnectionPipes(struct InfoChild* infoChild, size_t iChild,
-                                                      size_t nChilds);
+void MakeConnectionPipes(struct InfoChild* infoChild, size_t nChilds);
 void CloseRedundantPipes(bool isChild, struct InfoChild* infoChild);
 
 size_t CountSizeBuffer(size_t maxsize, size_t iChild, size_t nChild);
@@ -41,16 +41,14 @@ size_t CountSizeBuffer(size_t maxsize, size_t iChild, size_t nChild);
 
 void ProxyChilds(const char* path_input, size_t nChilds)
 {
-    assert(path_input);
-
     struct InfoChild* infoChilds = (struct InfoChild*)calloc(nChilds * 2,
                                                              sizeof(*infoChilds));
     bool isChild = false;
     for (size_t iChild = 0; iChild < nChilds && !isChild; iChild++) {
         int ret = 0;
 
-        MakeConnectionPipes(&infoChilds[iChild], iChild, nChilds);
         infoChilds[iChild].numChild  = iChild;
+        MakeConnectionPipes(&infoChilds[iChild], nChilds);
 
         //fork()
         pid_t pid_child = 0;
@@ -91,8 +89,11 @@ void ProxyChilds(const char* path_input, size_t nChilds)
 
 //-----------------------------------------------------------------------------
 
-void MakeConnectionPipes(struct InfoChild* infoChild, size_t iChild,
-                                                      size_t nChilds)
+
+
+
+
+void MakeConnectionPipes(struct InfoChild* infoChild, size_t nChilds)
 {
     assert(infoChild);
 
@@ -112,7 +113,7 @@ void MakeConnectionPipes(struct InfoChild* infoChild, size_t iChild,
         exit(EXIT_FAILURE);
     }
 
-    if (iChild == 0) {
+    if (infoChild->numChild == 0) {
         errno = 0;
         ret = close(infoChild->fd_from_parent[0]);
         if (ret < 0) {
@@ -121,7 +122,7 @@ void MakeConnectionPipes(struct InfoChild* infoChild, size_t iChild,
         }
     }
 
-    if (iChild == nChilds - 1) {
+    if (infoChild->numChild == nChilds - 1) {
         errno = 0;
         ret = close(infoChild->fd_to_parent[1]);
         if (ret < 0) {
