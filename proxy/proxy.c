@@ -10,18 +10,19 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/poll.h>
 #include <sys/prctl.h>
 #include <unistd.h>
 
 #include "proxy.h"
 
+const int BASE_SIZE_BUFFER = 1024;
 
-struct InfoConnection {
+struct InfoLink {
     int    fd_reader;
     int    fd_writer;
 
     char*  buffer;
-    size_t size_buffer;
     char*  buffer_end;
 
     char*  buffer_cur_read;
@@ -40,8 +41,7 @@ struct InfoChild {
     int    fd_from_parent[2];
 };
 
-//TODO
-//Think about close with close
+//TODO Delete = 0 after close
 
 void ProxyChild (const char* path_input, struct InfoChild* infoChild, size_t nChilds);
 void ProxyParent(struct InfoChild *infoChilds, size_t nChilds);
@@ -50,7 +50,7 @@ void MakeConnectionPipes(struct InfoChild *infoChild);
 void CloseRedundantFdPipes_Parent(struct InfoChild *infoChild);
 void CloseRedundantFdPipes_Child (struct InfoChild *infoChild);
 
-size_t CountSizeBuffer(size_t maxsize, size_t iChild, size_t nChild);
+size_t CountSizeBuffer(size_t base_size, size_t iChild, size_t nChild);
 
 // Shell funcs {
 
@@ -74,31 +74,14 @@ void ProxyChilds(const char* path_input, size_t nChilds)
         infoChildCur.numChild  = iChild;
         MakeConnectionPipes(&infoChildCur);
 
-        //fork()
-        pid_t pid_parent = getpid();
-        pid_t ret_fork = 0;
-
-        errno = 0;
-        switch (ret_fork = fork()) {
-        case -1:
-            perror("Error fork()");
-            exit(EXIT_FAILURE);
-
-        case 0:
-            ret = prctl(PR_SET_PDEATHSIG, SIGTERM);
-            if (ret < 0) {
-                perror("Error ret()");
-                //TODO kill childs
-                exit(EXIT_FAILURE);
-            }
-            if (pid_parent != getppid()) {
-                perror("Error parent process");
-                exit(EXIT_FAILURE);
-            }
+        pid_t ret_fork = Fork();
+        if (ret_fork == 0) {
             isChild = true;
             CloseRedundantFdPipes_Child(&infoChildCur);
-            break;
-        default:
+            free(infoChilds);
+        }
+
+        if (!isChild) {
             infoChildCur.pid_child = ret_fork;
             CloseRedundantFdPipes_Parent(&infoChildCur);
             infoChilds[iChild] = infoChildCur;
@@ -106,7 +89,6 @@ void ProxyChilds(const char* path_input, size_t nChilds)
     }
 
     if (isChild) {
-        free(infoChilds);
         ProxyChild(path_input, &infoChildCur, nChilds);
         exit(EXIT_SUCCESS);
     }
@@ -164,14 +146,31 @@ void ProxyChild(const char* path_input, struct InfoChild* infoChild, size_t nChi
         exit(EXIT_FAILURE);
     }
 
-//    ssize_t ret_splice = 0;
-//    while( (ret_splice = splice(fd_reader, NULL,
-//                                fd_writer, NULL, PIPE_BUF, SPLICE_F_MOVE)) ) {
-//        if (ret_splice < 0) {
-//            perror("Error splice");
-//            exit(EXIT_FAILURE);
-//        }
-//    }
+    //splice
+    ssize_t ret_splice = -1;
+    while (ret_splice) {
+        errno = 0;
+        ret_splice = splice(fd_reader, NULL, fd_writer, NULL, PIPE_BUF, SPLICE_F_MOVE);
+        if (ret_splice < 0) {
+            perror("Error splice");
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    //close
+    errno = 0;
+    ret = close(fd_writer);
+    if (ret < 0) {
+        perror("Error close");
+        exit(EXIT_FAILURE);
+    }
+
+    errno = 0;
+    ret = close(fd_reader);
+    if (ret < 0) {
+        perror("Error close");
+        exit(EXIT_FAILURE);
+    }
 }
 
 
@@ -179,10 +178,41 @@ void ProxyParent(struct InfoChild *infoChilds, size_t nChilds)
 {
     assert(infoChilds);
 
-    struct InfoConnection* infoConnections =
-            (struct InfoConnection*)calloc(nChilds, sizeof(*infoConnections));
+    size_t nLinks = nChilds - 1;
 
-    for (size_t i_connect = 0; i_connect < nChilds; i_connect++) {
+    struct InfoLink* IL = (struct InfoLink*)calloc(nLinks, sizeof(*IL));
+
+    for (size_t i_link = 0; i_link < nChilds - 1; i_link++) {
+
+        IL[i_link].fd_reader = infoChilds->fd_from_parent[1];
+        IL[i_link].fd_writer = infoChilds->fd_to_parent[0];
+
+        size_t size_buffer = CountSizeBuffer(BASE_SIZE_BUFFER, i_link, nChilds);
+        IL[i_link].buffer = (char*)calloc(size_buffer, sizeof(*IL[i_link].buffer));
+        IL[i_link].buffer_end = IL[i_link].buffer + size_buffer;
+    }
+
+    int ret_pool = -1;
+    while (ret_pool) {
+        ret_pool = 0;
+
+        size_t nReaders = nChilds - 1;
+        size_t nWriters = nChilds;
+
+        struct pollfd* fd_poll_readers =
+                (struct pollfd*)calloc(nReaders, sizeof(*fd_poll_readers));
+        struct pollfd* fd_poll_writers =
+                (struct pollfd*)calloc(nWriters, sizeof(*fd_poll_writers));
+
+        for (size_t i_link = 0; i_link < nLinks; i_link++) {
+
+
+            //
+
+        }
+
+
+
 
 
     }
@@ -259,7 +289,7 @@ void CloseRedundantFdPipes_Child(struct InfoChild *infoChild)
 }
 
 
-size_t CountSizeBuffer(size_t maxsize, size_t iChild, size_t nChild)
+size_t CountSizeBuffer(size_t base_size, size_t iChild, size_t nChild)
 {
     size_t size = pow(3, (double)(nChild - iChild)) * 1024;
     return size;
