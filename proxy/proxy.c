@@ -98,9 +98,7 @@ void ProxyChilds(const char* path_input, size_t nChilds)
         }
     }
 
-
     if (isChild) {
-        DumpFd(&infoChildCur);
         free(infoChilds);
         ProxyChild(path_input, &infoChildCur, nChilds);
         exit(EXIT_SUCCESS);
@@ -226,17 +224,19 @@ void DumpFd(struct InfoChild *infoChild)
     char* strDump = (char*)calloc(1000, sizeof(*strDump));
 
     sprintf(strDump + strlen(strDump),
-            "[%zu] :   fd_to_parent[0] - %d\n", infoChild->numChild,
-                                                  infoChild->fd_to_parent[0]);
+            "[%zu]fd_to_parent[0]   - %d\n", infoChild->numChild,
+                                             infoChild->fd_to_parent[0]);
     sprintf(strDump + strlen(strDump),
-            "        fd_to_parent[1]   - %d\n", infoChild->fd_to_parent[0]);
+            "[%zu]fd_to_parent[1]   - %d\n", infoChild->numChild,
+                                             infoChild->fd_to_parent[1]);
     sprintf(strDump + strlen(strDump),
-            "        fd_from_parent[0] - %d\n", infoChild->fd_to_parent[0]);
+            "[%zu]fd_from_parent[0] - %d\n", infoChild->numChild,
+                                             infoChild->fd_from_parent[0]);
     sprintf(strDump + strlen(strDump),
-            "        fd_from_parent[1] - %d\n", infoChild->fd_to_parent[0]);
+            "[%zu]fd_from_parent[1] - %d\n", infoChild->numChild,
+                                             infoChild->fd_from_parent[1]);
     sprintf(strDump + strlen(strDump),
             "\n\n");
 
-    printf("%s", strDump);
-    fflush(stdout);
+    printf("%s\n", strDump);
 }
