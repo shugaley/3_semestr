@@ -52,6 +52,12 @@ void CloseRedundantFdPipes_Child (struct InfoChild *infoChild);
 
 size_t CountSizeBuffer(size_t maxsize, size_t iChild, size_t nChild);
 
+// Shell funcs {
+
+pid_t Fork();
+
+// } Shell funcs
+
 void DumpFd(struct InfoChild *infoChild);
 
 //-----------------------------------------------------------------------------
@@ -82,6 +88,7 @@ void ProxyChilds(const char* path_input, size_t nChilds)
             ret = prctl(PR_SET_PDEATHSIG, SIGTERM);
             if (ret < 0) {
                 perror("Error ret()");
+                //TODO kill childs
                 exit(EXIT_FAILURE);
             }
             if (pid_parent != getppid()) {
@@ -118,18 +125,53 @@ void ProxyChild(const char* path_input, struct InfoChild* infoChild, size_t nChi
     assert(path_input);
     assert(infoChild);
 
-    return;
-    //TODO fcntl, open file
+    int ret = 0;
 
-    int fd_reader = infoChild->fd_from_parent[0];
+    //prepare fd
+    int fd_reader = 0;
     int fd_writer = infoChild->fd_to_parent[1];
 
-    ssize_t ret_splice = 0;
-    while( (ret_splice = splice(fd_reader, NULL,
-                                fd_writer, NULL, PIPE_BUF, SPLICE_F_MOVE)) ) {
+    if (infoChild->numChild == 0) {
+        errno = 0;
+        ret = close(infoChild->fd_from_parent[0]);
+        if (ret < 0) {
+            perror("Error close");
+            exit(EXIT_FAILURE);
+        }
 
-
+        errno = 0;
+        fd_reader = open (path_input, O_RDONLY);
+        if (fd_reader < 0) {
+            perror("Error open");
+            exit(EXIT_FAILURE);
+        }
     }
+    else
+        fd_reader = infoChild->fd_from_parent[0];
+
+    //fcntl
+    errno = 0;
+    ret = fcntl(fd_reader, F_SETFL, O_RDONLY);
+    if (ret < 0) {
+        perror("Error fcntl");
+        exit(EXIT_FAILURE);
+    }
+
+    errno = 0;
+    ret = fcntl(fd_writer, F_SETFL, O_RDONLY);
+    if (ret < 0) {
+        perror("Error fcntl");
+        exit(EXIT_FAILURE);
+    }
+
+//    ssize_t ret_splice = 0;
+//    while( (ret_splice = splice(fd_reader, NULL,
+//                                fd_writer, NULL, PIPE_BUF, SPLICE_F_MOVE)) ) {
+//        if (ret_splice < 0) {
+//            perror("Error splice");
+//            exit(EXIT_FAILURE);
+//        }
+//    }
 }
 
 
@@ -137,6 +179,13 @@ void ProxyParent(struct InfoChild *infoChilds, size_t nChilds)
 {
     assert(infoChilds);
 
+    struct InfoConnection* infoConnections =
+            (struct InfoConnection*)calloc(nChilds, sizeof(*infoConnections));
+
+    for (size_t i_connect = 0; i_connect < nChilds; i_connect++) {
+
+
+    }
 
 }
 
@@ -147,14 +196,14 @@ void MakeConnectionPipes(struct InfoChild *infoChild)
     int ret = 0;
 
     errno = 0;
-    ret = pipe(infoChild->fd_from_parent);
+    ret = pipe2(infoChild->fd_from_parent, O_NONBLOCK);
     if (ret < 0) {
         perror("Error pipe");
         exit(EXIT_FAILURE);
     }
 
     errno = 0;
-    ret = pipe(infoChild->fd_to_parent);
+    ret = pipe2(infoChild->fd_to_parent, O_NONBLOCK);
     if (ret < 0) {
         perror("Error pipe");
         exit(EXIT_FAILURE);
@@ -216,6 +265,34 @@ size_t CountSizeBuffer(size_t maxsize, size_t iChild, size_t nChild)
     return size;
 }
 
+// Shell funcs {
+
+pid_t Fork()
+{
+    pid_t pid_parent = getpid();
+
+    errno = 0;
+    pid_t ret_fork = fork();
+    if (ret_fork < -1) {
+        perror("Error fork()");
+        exit(EXIT_FAILURE);
+    }
+
+    int ret = prctl(PR_SET_PDEATHSIG, SIGTERM);
+    if (ret < 0) {
+        perror("Error ret()");
+        //TODO kill childs
+        exit(EXIT_FAILURE);
+    }
+    if (pid_parent != getppid()) {
+        perror("Error parent process");
+        exit(EXIT_FAILURE);
+    }
+
+    return ret_fork;
+}
+
+// } Shell funcs
 
 void DumpFd(struct InfoChild *infoChild)
 {
