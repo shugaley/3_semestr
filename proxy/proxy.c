@@ -135,9 +135,9 @@ void ProxyChild(const char* path_input, struct InfoChild* infoChild, size_t nChi
         fd_reader = infoChild->fd_from_parent[0];
 
     //TODO Dump
-    infoChild->fd_from_parent[0] = fd_reader;
-    printf("Child [%zu] : ", infoChild->numChild);
-    DumpFd(infoChild);
+//    infoChild->fd_from_parent[0] = fd_reader;
+//    printf("Child [%zu] : ", infoChild->numChild);
+//    DumpFd(infoChild);
 
     //fcntl
     errno = 0;
@@ -187,19 +187,24 @@ void ProxyParent(struct InfoChild *infoChilds, size_t nChilds)
     assert(infoChilds);
 
     //TODO Dump
-    for (size_t i = 0; i < nChilds; i++) {
-        printf("Parent [%zu] : ", i);
-        DumpFd(&infoChilds[i]);
-    }
+//    for (size_t i = 0; i < nChilds; i++) {
+//        printf("Parent [%zu] : ", i);
+//        DumpFd(&infoChilds[i]);
+//    }
 
-    size_t nLinks = nChilds - 1;
+    size_t nLinks = nChilds;
 
     struct InfoLink* IL = (struct InfoLink*)calloc(nLinks, sizeof(*IL));
 
-    for (size_t i_link = 0; i_link < nChilds - 1; i_link++) {
+    //Init IL[i_link]
+    for (size_t i_link = 0; i_link < nLinks; i_link++) {
 
-        IL[i_link].fd_writer = infoChilds->fd_to_parent[0];
-        IL[i_link].fd_reader = infoChilds->fd_from_parent[1];
+        IL[i_link].fd_writer = infoChilds[i_link].fd_to_parent[0];
+
+        if (i_link == nLinks - 1)
+            IL[i_link].fd_reader = STDOUT_FILENO;
+        else
+            IL[i_link].fd_reader = infoChilds[i_link + 1].fd_from_parent[1];
 
         size_t size_buffer = CountSizeBuffer(BASE_SIZE_BUFFER, i_link, nChilds);
         IL[i_link].buffer = (char*)calloc(size_buffer, sizeof(*IL[i_link].buffer));
@@ -212,9 +217,9 @@ void ProxyParent(struct InfoChild *infoChilds, size_t nChilds)
     int ret_pool_writers = -1;
     int ret_pool_readers = -1;
     while (ret_pool_writers) {
-        //poll
-        size_t nWriters = nChilds;
-        size_t nReaders = nChilds - 1;
+        //prepare poll
+        size_t nWriters = nLinks;
+        size_t nReaders = nLinks;
 
         struct pollfd* fdpoll_writers =
                 (struct pollfd*)calloc(nWriters, sizeof(*fdpoll_writers));
@@ -230,6 +235,7 @@ void ProxyParent(struct InfoChild *infoChilds, size_t nChilds)
             fdpoll_readers[i_link].events = POLLOUT;
         }
 
+        //poll
         errno = 0;
         ret_pool_writers = poll(fdpoll_writers, nWriters, 0);
         if (ret_pool_writers < 0) {
@@ -250,14 +256,18 @@ void ProxyParent(struct InfoChild *infoChilds, size_t nChilds)
             //write to buffer
             bool isCanWrite = fdpoll_writers[i_link].revents ==
                               fdpoll_writers[i_link].events;
+
             if (isCanWrite && IL[i_link].size_empty > 0)
                 WriteToBuffer(&IL[i_link]);
 
             // read from buffer
             bool isCanRead = fdpoll_readers[i_link].revents ==
                              fdpoll_readers[i_link].events;
+
             if (isCanRead && IL[i_link].size_full > 0)
                 ReadFromBuffer(&IL[i_link]);
+
+
         }
     }
 }
