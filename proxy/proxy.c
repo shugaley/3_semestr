@@ -46,11 +46,16 @@ struct InfoChild {
 void ProxyChild (const char* path_input, struct InfoChild* infoChild, size_t nChilds);
 void ProxyParent(struct InfoChild *infoChilds, size_t nChilds);
 
-void MakeConnectionPipes(struct InfoChild *infoChild);
-void CloseRedundantFdPipes_Parent(struct InfoChild *infoChild);
-void CloseRedundantFdPipes_Child (struct InfoChild *infoChild);
+void  WriteToBuffer(struct InfoLink* IL);
+void ReadFromBuffer(struct InfoLink* IL);
 
 size_t CountSizeBuffer(size_t base_size, size_t iChild, size_t nChild);
+
+// Work with pipe {
+void MakeConnectionPipes         (struct InfoChild *infoChild);
+void CloseRedundantFdPipes_Parent(struct InfoChild *infoChild);
+void CloseRedundantFdPipes_Child (struct InfoChild *infoChild);
+// } Work with pipe
 
 // Shell funcs {
 
@@ -87,23 +92,15 @@ void ProxyChilds(const char* path_input, size_t nChilds)
             infoChilds[iChild] = infoChildCur;
         }
     }
-    if (!isChild) {
-        for (size_t i = 0; i < nChilds; i++) {
-            printf("[%zu] :\n", i);
-            DumpFd(&infoChilds[i]);
-        }
-    }
 
     if (isChild) {
-    //    ProxyChild(path_input, &infoChildCur, nChilds);
+        ProxyChild(path_input, &infoChildCur, nChilds);
         exit(EXIT_SUCCESS);
     }
     else
-       // ProxyParent(infoChilds, nChilds);
+        ProxyParent(infoChilds, nChilds);
 
     free(infoChilds);
-
-    sleep(5);
 }
 
 //-----------------------------------------------------------------------------
@@ -136,6 +133,11 @@ void ProxyChild(const char* path_input, struct InfoChild* infoChild, size_t nChi
     }
     else
         fd_reader = infoChild->fd_from_parent[0];
+
+    //TODO Dump
+    infoChild->fd_from_parent[0] = fd_reader;
+    printf("Child [%zu] : ", infoChild->numChild);
+    DumpFd(infoChild);
 
     //fcntl
     errno = 0;
@@ -183,6 +185,12 @@ void ProxyChild(const char* path_input, struct InfoChild* infoChild, size_t nChi
 void ProxyParent(struct InfoChild *infoChilds, size_t nChilds)
 {
     assert(infoChilds);
+
+    //TODO Dump
+    for (size_t i = 0; i < nChilds; i++) {
+        printf("Parent [%zu] : ", i);
+        DumpFd(&infoChilds[i]);
+    }
 
     size_t nLinks = nChilds - 1;
 
@@ -239,42 +247,64 @@ void ProxyParent(struct InfoChild *infoChilds, size_t nChilds)
         //read & write
         for (size_t i_link = 0; i_link < nLinks; i_link++) {
 
-            if (fdpoll_writers[i_link].revents == fdpoll_writers[i_link].events) {
-            }
+            //write to buffer
+            bool isCanWrite = fdpoll_writers[i_link].revents ==
+                              fdpoll_writers[i_link].events;
+            if (isCanWrite && IL[i_link].size_empty > 0)
+                WriteToBuffer(&IL[i_link]);
 
-            if (fdpoll_readers[i_link].revents == fdpoll_readers[i_link].events &&
-                IL[i_link].size_full > 0) {
-
-                errno = 0;
-                ssize_t ret_write = write(IL[i_link].fd_reader,
-                                          IL[i_link].cur_read,
-                                          IL[i_link].size_full);
-                if (ret_write < 0) {
-                    perror("Error write");
-                    exit(EXIT_FAILURE);
-                }
-
-                if (IL[i_link].cur_read + ret_write == IL[i_link].buffer_end) {
-                    IL[i_link].cur_read    = IL[i_link].buffer;
-                    IL[i_link].size_empty += ret_write;
-                    IL[i_link].size_full  -= ret_write;
-                }
-                else {
-                    if (IL[i_link].cur_read > IL[i_link].cur_write)
-                        ;
-                }
-
-
-
-            }
-
-
-
+            // read from buffer
+            bool isCanRead = fdpoll_readers[i_link].revents ==
+                             fdpoll_readers[i_link].events;
+            if (isCanRead && IL[i_link].size_full > 0)
+                ReadFromBuffer(&IL[i_link]);
         }
-
     }
+}
+
+
+void  WriteToBuffer(struct InfoLink* IL)
+{
+    assert(IL);
+
 
 }
+
+
+
+void ReadFromBuffer(struct InfoLink* IL)
+{
+    assert(IL);
+
+    errno = 0;
+    ssize_t ret_write = write(IL->fd_reader, IL->cur_read, IL->size_full);
+    if (ret_write < 0) {
+        perror("Error write");
+        exit(EXIT_FAILURE);
+    }
+
+    if (IL->cur_read + ret_write == IL->buffer_end)
+        IL->cur_read = IL->buffer;
+    else
+        IL->cur_read += ret_write;
+
+    if (IL->cur_read > IL->cur_write || IL->cur_read == IL->buffer)
+        IL->size_empty +=ret_write;
+
+    IL->size_full  -= ret_write;
+}
+
+
+
+size_t CountSizeBuffer(size_t base_size, size_t iChild, size_t nChild)
+{
+    size_t size = pow(3, (double)(nChild - iChild)) * 1024;
+    return size;
+}
+
+
+
+// Work with pipe {
 
 void MakeConnectionPipes(struct InfoChild *infoChild)
 {
@@ -310,7 +340,7 @@ void CloseRedundantFdPipes_Parent(struct InfoChild *infoChild)
         perror("Error close");
         exit(EXIT_FAILURE);
     }
-    infoChild->fd_from_parent[0] = 0;
+    infoChild->fd_from_parent[0] = -1;
 
     if (infoChild->numChild == 0) {
         errno = 0;
@@ -319,7 +349,7 @@ void CloseRedundantFdPipes_Parent(struct InfoChild *infoChild)
             perror("Error close");
             exit(EXIT_FAILURE);
         }
-        infoChild->fd_from_parent[1] = 0;
+        infoChild->fd_from_parent[1] = -1;
     }
 
     errno = 0;
@@ -328,7 +358,7 @@ void CloseRedundantFdPipes_Parent(struct InfoChild *infoChild)
         perror("Error close");
         exit(EXIT_FAILURE);
     }
-    infoChild->fd_to_parent[1] = 0;
+    infoChild->fd_to_parent[1] = -1;
 }
 
 
@@ -344,7 +374,7 @@ void CloseRedundantFdPipes_Child(struct InfoChild *infoChild)
         perror("Error close");
         exit(EXIT_FAILURE);
     }
-    infoChild->fd_from_parent[1] = 0;
+    infoChild->fd_from_parent[1] = -1;
 
     errno = 0;
     ret = close(infoChild->fd_to_parent[0]);
@@ -352,15 +382,12 @@ void CloseRedundantFdPipes_Child(struct InfoChild *infoChild)
         perror("Error close");
         exit(EXIT_FAILURE);
     }
-    infoChild->fd_to_parent[0] = 0;
+    infoChild->fd_to_parent[0] = -1;
 }
 
+// } Work with pipe
 
-size_t CountSizeBuffer(size_t base_size, size_t iChild, size_t nChild)
-{
-    size_t size = pow(3, (double)(nChild - iChild)) * 1024;
-    return size;
-}
+
 
 // Shell funcs {
 
@@ -393,11 +420,15 @@ pid_t Fork()
 
 // } Shell funcs
 
+
+
 void DumpFd(struct InfoChild *infoChild)
 {
     assert(infoChild);
 
     char* strDump = (char*)calloc(1000, sizeof(*strDump));
+
+    sprintf(strDump, "\n");
 
     sprintf(strDump + strlen(strDump),
             "[%zu]fd_to_parent[0]   - %d\n", infoChild->numChild,
