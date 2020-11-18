@@ -267,7 +267,24 @@ void  WriteToBuffer(struct InfoLink* IL)
 {
     assert(IL);
 
+    errno = 0;
+    ssize_t ret_read = read(IL->fd_writer, IL->cur_write, IL->size_empty);
+    if (ret_read < 0) {
+        perror("Error read");
+        exit(EXIT_FAILURE);
+    }
 
+    if (IL->cur_write > IL->cur_read)
+        IL->size_full += ret_read;
+
+    if (IL->cur_write + ret_read == IL->buffer_end) {
+        IL->cur_write   = IL->buffer;
+        IL->size_empty = IL->cur_write - IL->cur_read;
+    }
+    else {
+        IL->cur_write  += ret_read;
+        IL->size_empty -= ret_read;
+    }
 }
 
 
@@ -283,15 +300,17 @@ void ReadFromBuffer(struct InfoLink* IL)
         exit(EXIT_FAILURE);
     }
 
-    if (IL->cur_read + ret_write == IL->buffer_end)
-        IL->cur_read = IL->buffer;
-    else
-        IL->cur_read += ret_write;
+    if (IL->cur_read > IL->cur_write)
+        IL->size_empty += ret_write;
 
-    if (IL->cur_read > IL->cur_write || IL->cur_read == IL->buffer)
-        IL->size_empty +=ret_write;
-
-    IL->size_full  -= ret_write;
+    if (IL->cur_read + ret_write == IL->buffer_end) {
+        IL->cur_read  = IL->buffer;
+        IL->size_full = IL->cur_read - IL->cur_write;
+    }
+    else {
+        IL->cur_read  += ret_write;
+        IL->size_full -= ret_write;
+    }
 }
 
 
