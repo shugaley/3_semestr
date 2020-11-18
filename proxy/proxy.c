@@ -19,14 +19,14 @@
 const int BASE_SIZE_BUFFER = 1024;
 
 struct InfoLink {
-    int    fd_reader;
     int    fd_writer;
+    int    fd_reader;
 
     char*  buffer;
     char*  buffer_end;
 
-    char*  buffer_cur_read;
-    char*  buffer_cur_write;
+    char*  cur_read;   //from buffer
+    char*  cur_write;  //to buffer
 
     size_t size_empty;
     size_t size_full;
@@ -87,13 +87,19 @@ void ProxyChilds(const char* path_input, size_t nChilds)
             infoChilds[iChild] = infoChildCur;
         }
     }
+    if (!isChild) {
+        for (size_t i = 0; i < nChilds; i++) {
+            printf("[%zu] :\n", i);
+            DumpFd(&infoChilds[i]);
+        }
+    }
 
     if (isChild) {
-        ProxyChild(path_input, &infoChildCur, nChilds);
+    //    ProxyChild(path_input, &infoChildCur, nChilds);
         exit(EXIT_SUCCESS);
     }
     else
-        ProxyParent(infoChilds, nChilds);
+       // ProxyParent(infoChilds, nChilds);
 
     free(infoChilds);
 
@@ -184,36 +190,87 @@ void ProxyParent(struct InfoChild *infoChilds, size_t nChilds)
 
     for (size_t i_link = 0; i_link < nChilds - 1; i_link++) {
 
-        IL[i_link].fd_reader = infoChilds->fd_from_parent[1];
         IL[i_link].fd_writer = infoChilds->fd_to_parent[0];
+        IL[i_link].fd_reader = infoChilds->fd_from_parent[1];
 
         size_t size_buffer = CountSizeBuffer(BASE_SIZE_BUFFER, i_link, nChilds);
         IL[i_link].buffer = (char*)calloc(size_buffer, sizeof(*IL[i_link].buffer));
         IL[i_link].buffer_end = IL[i_link].buffer + size_buffer;
+
+        IL[i_link].size_empty = size_buffer;
+        IL[i_link].size_full  = 0;
     }
 
-    int ret_pool = -1;
-    while (ret_pool) {
-        ret_pool = 0;
-
-        size_t nReaders = nChilds - 1;
+    int ret_pool_writers = -1;
+    int ret_pool_readers = -1;
+    while (ret_pool_writers) {
+        //poll
         size_t nWriters = nChilds;
+        size_t nReaders = nChilds - 1;
 
-        struct pollfd* fd_poll_readers =
-                (struct pollfd*)calloc(nReaders, sizeof(*fd_poll_readers));
-        struct pollfd* fd_poll_writers =
-                (struct pollfd*)calloc(nWriters, sizeof(*fd_poll_writers));
+        struct pollfd* fdpoll_writers =
+                (struct pollfd*)calloc(nWriters, sizeof(*fdpoll_writers));
+        struct pollfd* fdpoll_readers =
+                (struct pollfd*)calloc(nReaders, sizeof(*fdpoll_readers));
 
         for (size_t i_link = 0; i_link < nLinks; i_link++) {
 
+            fdpoll_writers[i_link].fd = IL[i_link].fd_writer;
+            fdpoll_writers[i_link].events = POLLIN;
 
-            //
-
+            fdpoll_readers[i_link].fd     = IL[i_link].fd_reader;
+            fdpoll_readers[i_link].events = POLLOUT;
         }
 
+        errno = 0;
+        ret_pool_writers = poll(fdpoll_writers, nWriters, 0);
+        if (ret_pool_writers < 0) {
+            perror("Error pool");
+            exit(EXIT_FAILURE);
+        }
+
+        errno = 0;
+        ret_pool_readers = poll(fdpoll_readers, nReaders, 0);
+        if (ret_pool_readers < 0) {
+            perror("Error pool");
+            exit(EXIT_FAILURE);
+        }
+
+        //read & write
+        for (size_t i_link = 0; i_link < nLinks; i_link++) {
+
+            if (fdpoll_writers[i_link].revents == fdpoll_writers[i_link].events) {
+            }
+
+            if (fdpoll_readers[i_link].revents == fdpoll_readers[i_link].events &&
+                IL[i_link].size_full > 0) {
+
+                errno = 0;
+                ssize_t ret_write = write(IL[i_link].fd_reader,
+                                          IL[i_link].cur_read,
+                                          IL[i_link].size_full);
+                if (ret_write < 0) {
+                    perror("Error write");
+                    exit(EXIT_FAILURE);
+                }
+
+                if (IL[i_link].cur_read + ret_write == IL[i_link].buffer_end) {
+                    IL[i_link].cur_read    = IL[i_link].buffer;
+                    IL[i_link].size_empty += ret_write;
+                    IL[i_link].size_full  -= ret_write;
+                }
+                else {
+                    if (IL[i_link].cur_read > IL[i_link].cur_write)
+                        ;
+                }
 
 
 
+            }
+
+
+
+        }
 
     }
 
@@ -254,6 +311,16 @@ void CloseRedundantFdPipes_Parent(struct InfoChild *infoChild)
         exit(EXIT_FAILURE);
     }
     infoChild->fd_from_parent[0] = 0;
+
+    if (infoChild->numChild == 0) {
+        errno = 0;
+        ret = close(infoChild->fd_from_parent[1]);
+        if (ret < 0) {
+            perror("Error close");
+            exit(EXIT_FAILURE);
+        }
+        infoChild->fd_from_parent[1] = 0;
+    }
 
     errno = 0;
     ret = close(infoChild->fd_to_parent[1]);
@@ -308,15 +375,17 @@ pid_t Fork()
         exit(EXIT_FAILURE);
     }
 
-    int ret = prctl(PR_SET_PDEATHSIG, SIGTERM);
-    if (ret < 0) {
-        perror("Error ret()");
-        //TODO kill childs
-        exit(EXIT_FAILURE);
-    }
-    if (pid_parent != getppid()) {
-        perror("Error parent process");
-        exit(EXIT_FAILURE);
+    if (ret_fork == 0) {
+        int ret = prctl(PR_SET_PDEATHSIG, SIGTERM);
+        if (ret < 0) {
+            perror("Error ret()");
+            //TODO kill childs
+            exit(EXIT_FAILURE);
+        }
+        if (pid_parent != getppid()) {
+            perror("Error parent process");
+            exit(EXIT_FAILURE);
+        }
     }
 
     return ret_fork;
