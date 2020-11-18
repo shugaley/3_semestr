@@ -13,11 +13,20 @@
 
 
 struct InfoConnection {
-    char*  buffer;
-    size_t size_buffer;
     int    fr_writer;
     int    fd_reader;
+
+    char*  buffer;
+    char*  buffer_end;
+    size_t size_buffer;
+
+    char*  buffer_cur_write;
+    char*  buffer_cur_read;
+
+    size_t size_empty;
+    size_t size_full;
 };
+
 
 struct InfoChild {
     size_t numChild;
@@ -27,15 +36,18 @@ struct InfoChild {
     int    fd_from_parent[2];
 };
 
+//TODO
+//Think about close with close
 
-void ProxyChild(const char* path_input, struct InfoChild* infoChild,
-                size_t iChild, size_t nChilds);
-void ProxyParent();
+void ProxyChild (const char* path_input, struct InfoChild* infoChild, size_t nChilds);
+void ProxyParent(struct InfoChild* infoChild);
 
 void MakeConnectionPipes(struct InfoChild* infoChild, size_t nChilds);
 void CloseRedundantPipes(bool isChild, struct InfoChild* infoChild);
 
 size_t CountSizeBuffer(size_t maxsize, size_t iChild, size_t nChild);
+
+void DumpFd(bool isChild, struct InfoChild* infoChilds, size_t nChild);
 
 //-----------------------------------------------------------------------------
 
@@ -44,10 +56,12 @@ void ProxyChilds(const char* path_input, size_t nChilds)
     struct InfoChild* infoChilds = (struct InfoChild*)calloc(nChilds * 2,
                                                              sizeof(*infoChilds));
     bool isChild = false;
+    size_t numChild = 0;
     for (size_t iChild = 0; iChild < nChilds && !isChild; iChild++) {
         int ret = 0;
 
-        infoChilds[iChild].numChild  = iChild;
+        numChild = iChild;
+        infoChilds[iChild].numChild  = numChild;
         MakeConnectionPipes(&infoChilds[iChild], nChilds);
 
         //fork()
@@ -76,22 +90,39 @@ void ProxyChilds(const char* path_input, size_t nChilds)
             infoChilds[iChild].pid_child = pid_child;
         }
 
-        CloseRedundantPipes(isChild, &infoChilds[iChild]);
+       // CloseRedundantPipes(isChild, &infoChilds[iChild]);
     }
 
     if (isChild)
-        ProxyChild();
+        ProxyChild(path_input, &infoChilds[numChild], nChilds);
     else
-        ProxyParent();
+        ProxyParent(&infoChilds[numChild]);
 
     free(infoChilds);
+
 }
 
 //-----------------------------------------------------------------------------
 
 
+void ProxyChild(const char* path_input, struct InfoChild* infoChild, size_t nChilds)
+{
+    assert(path_input);
+    assert(infoChild);
+
+    //TODO fcntl, open file
 
 
+
+}
+
+
+void ProxyParent(struct InfoChild* infoChild)
+{
+    assert(infoChild);
+
+
+}
 
 void MakeConnectionPipes(struct InfoChild* infoChild, size_t nChilds)
 {
@@ -181,3 +212,18 @@ size_t CountSizeBuffer(size_t maxsize, size_t iChild, size_t nChild)
 }
 
 
+void DumpFd(bool isChild, struct  InfoChild* infoChilds, size_t nChild)
+{
+    assert(infoChilds);
+
+    if (isChild)
+        printf("CHILD :\n");
+    else
+        printf("Parent :\n");
+
+    for (size_t i_infoChild = 0; i_infoChild < nChild; i_infoChild++) {
+
+        printf("[%zu] ", i_infoChild);
+        //printf("", infoChilds[i_infoChild].)
+    }
+}
