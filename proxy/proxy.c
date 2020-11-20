@@ -42,8 +42,8 @@ struct InfoChild {
     int    fd_from_parent[2];
 };
 
-void ProxyChild (const char* path_input, struct InfoChild* infoChild, size_t nChilds);
-void ProxyParent(struct InfoChild *infoChilds, size_t nChilds);
+void ProxyChild (const char* path_input, struct InfoChild* infoChild);
+void ProxyParent(const struct InfoChild* infoChilds, size_t nChilds);
 
 void ReadToBuffer   (struct InfoLink* IL);
 void WriteFromBuffer(struct InfoLink* IL);
@@ -51,16 +51,16 @@ void WriteFromBuffer(struct InfoLink* IL);
 size_t CountSizeBuffer(size_t base_size, size_t iChild, size_t nChild);
 
 // Work with fd pipe {
-void MakeConnectionPipes         (struct InfoChild *infoChild);
-void CloseRedundantFdPipes_Parent(struct InfoChild *infoChild);
-void CloseRedundantFdPipes_Child (struct InfoChild *infoChild);
+void MakeConnectionPipes         (struct InfoChild* infoChild);
+void CloseRedundantFdPipes_Parent(struct InfoChild* infoChild);
+void CloseRedundantFdPipes_Child (struct InfoChild* infoChild);
 // } Work with fd pipe
 
 // Shell funcs {
 pid_t Fork();
 // } Shell funcs
 
-void DumpFd(struct InfoChild *infoChild);
+void DumpFd(struct InfoChild* infoChild);
 
 //-----------------------------------------------------------------------------
 
@@ -93,7 +93,7 @@ void ProxyChilds(const char* path_input, size_t nChilds)
     }
 
     if (isChild) {
-        ProxyChild(path_input, &infoChildCur, nChilds);
+        ProxyChild(path_input, &infoChildCur);
         exit(EXIT_SUCCESS);
     }
     else {
@@ -113,7 +113,7 @@ void ProxyChilds(const char* path_input, size_t nChilds)
 
 //-----------------------------------------------------------------------------
 
-void ProxyChild(const char* path_input, struct InfoChild* infoChild, size_t nChilds)
+void ProxyChild(const char* path_input, struct InfoChild* infoChild)
 {
     assert(path_input);
     assert(infoChild);
@@ -176,7 +176,7 @@ void ProxyChild(const char* path_input, struct InfoChild* infoChild, size_t nChi
 }
 
 
-void ProxyParent(struct InfoChild *infoChilds, size_t nChilds)
+void ProxyParent(const struct InfoChild* infoChilds, size_t nChilds)
 {
     assert(infoChilds);
 
@@ -382,7 +382,7 @@ size_t CountSizeBuffer(size_t base_size, size_t iChild, size_t nChild)
 
 // Work with fd pipe {
 
-void MakeConnectionPipes(struct InfoChild *infoChild)
+void MakeConnectionPipes(struct InfoChild* infoChild)
 {
     assert(infoChild);
 
@@ -404,7 +404,7 @@ void MakeConnectionPipes(struct InfoChild *infoChild)
 }
 
 
-void CloseRedundantFdPipes_Parent(struct InfoChild *infoChild)
+void CloseRedundantFdPipes_Parent(struct InfoChild* infoChild)
 {
     assert(infoChild);
 
@@ -428,7 +428,7 @@ void CloseRedundantFdPipes_Parent(struct InfoChild *infoChild)
 }
 
 
-void CloseRedundantFdPipes_Child(struct InfoChild *infoChild)
+void CloseRedundantFdPipes_Child(struct InfoChild* infoChild)
 {
     assert(infoChild);
 
@@ -488,7 +488,7 @@ pid_t Fork()
 
 
 
-void DumpFd(struct InfoChild *infoChild)
+void DumpFd(struct InfoChild* infoChild)
 {
     assert(infoChild);
 
