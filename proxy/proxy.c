@@ -26,8 +26,8 @@ struct InfoLink {
     char*  buffer;
     char*  buffer_end;
 
-    char*  cur_read;   //from buffer
-    char*  cur_write;  //to buffer
+    char*  cur_write; //from buffer
+    char*  cur_read;  //to buffer
 
     size_t size_empty;
     size_t size_full;
@@ -45,8 +45,8 @@ struct InfoChild {
 void ProxyChild (const char* path_input, struct InfoChild* infoChild, size_t nChilds);
 void ProxyParent(struct InfoChild *infoChilds, size_t nChilds);
 
-void  WriteToBuffer(struct InfoLink* IL);
-void ReadFromBuffer(struct InfoLink* IL);
+void ReadToBuffer   (struct InfoLink* IL);
+void WriteFromBuffer(struct InfoLink* IL);
 
 size_t CountSizeBuffer(size_t base_size, size_t iChild, size_t nChild);
 
@@ -202,8 +202,8 @@ void ProxyParent(struct InfoChild *infoChilds, size_t nChilds)
 
         IL[i_link].buffer_end = IL[i_link].buffer + size_buffer;
 
-        IL[i_link].cur_write = IL[i_link].buffer;
-        IL[i_link].cur_read  = IL[i_link].buffer;
+        IL[i_link].cur_read = IL[i_link].buffer;
+        IL[i_link].cur_write  = IL[i_link].buffer;
 
         IL[i_link].size_empty = size_buffer;
         IL[i_link].size_full  = 0;
@@ -256,18 +256,18 @@ void ProxyParent(struct InfoChild *infoChilds, size_t nChilds)
                 IL[i_link].fd_writer = -1;
             }
 
-            //Write to buffer
+            //Read to buffer
             bool isCanWrite = fdpoll_writers[i_link].revents & POLLIN;
 
             if (isCanWrite && IL[i_link].size_empty > 0)
-                WriteToBuffer(&IL[i_link]);
+                ReadToBuffer(&IL[i_link]);
 
-            //Read from buffer
+            //Write from buffer
             bool isCanRead = fdpoll_readers[i_link].revents ==
                              fdpoll_readers[i_link].events;
 
             if (isCanRead && IL[i_link].size_full > 0)
-                ReadFromBuffer(&IL[i_link]);
+                WriteFromBuffer(&IL[i_link]);
 
             //Close Pipe to ChildReader
             if (IL[i_link].fd_writer == -1 && IL[i_link].size_full == 0) {
@@ -321,52 +321,52 @@ void ProxyParent(struct InfoChild *infoChilds, size_t nChilds)
 }
 
 
-void  WriteToBuffer(struct InfoLink* IL)
+void  ReadToBuffer(struct InfoLink* IL)
 {
     assert(IL);
 
     errno = 0;
-    ssize_t ret_read = read(IL->fd_writer, IL->cur_write, IL->size_empty);
+    ssize_t ret_read = read(IL->fd_writer, IL->cur_read, IL->size_empty);
     if (ret_read < 0) {
         perror("Error read");
         exit(EXIT_FAILURE);
     }
 
-    if (IL->cur_write >= IL->cur_read)
+    if (IL->cur_read >= IL->cur_write)
         IL->size_full += ret_read;
 
-    if (IL->cur_write + ret_read == IL->buffer_end) {
-        IL->cur_write  = IL->buffer;
-        IL->size_empty = IL->cur_read - IL->cur_write;
+    if (IL->cur_read + ret_read == IL->buffer_end) {
+        IL->cur_read  = IL->buffer;
+        IL->size_empty = IL->cur_write - IL->cur_read;
     }
     else {
-        IL->cur_write  += ret_read;
+        IL->cur_read  += ret_read;
         IL->size_empty -= ret_read;
     }
 }
 
 
 
-void ReadFromBuffer(struct InfoLink* IL)
+void WriteFromBuffer(struct InfoLink* IL)
 {
     assert(IL);
 
     errno = 0;
-    ssize_t ret_write = write(IL->fd_reader, IL->cur_read, IL->size_full);
+    ssize_t ret_write = write(IL->fd_reader, IL->cur_write, IL->size_full);
     if (ret_write < 0) {
         perror("Error write");
         exit(EXIT_FAILURE);
     }
 
-    if (IL->cur_read >= IL->cur_write)
+    if (IL->cur_write >= IL->cur_read)
         IL->size_empty += ret_write;
 
-    if (IL->cur_read + ret_write == IL->buffer_end) {
-        IL->cur_read  = IL->buffer;
-        IL->size_full = IL->cur_write - IL->cur_read;
+    if (IL->cur_write + ret_write == IL->buffer_end) {
+        IL->cur_write  = IL->buffer;
+        IL->size_full = IL->cur_read - IL->cur_write;
     }
     else {
-        IL->cur_read  += ret_write;
+        IL->cur_write  += ret_write;
         IL->size_full -= ret_write;
     }
 }
