@@ -49,6 +49,7 @@ void ReadToBuffer   (struct InfoLink* IL);
 void WriteFromBuffer(struct InfoLink* IL);
 
 size_t CountSizeBuffer(size_t base_size, size_t iChild, size_t nChild);
+void AnalizeStatusChild(int status, const struct InfoChild* infoChild);
 
 // Work with fd pipe {
 void MakeConnectionPipes         (struct InfoChild* infoChild);
@@ -313,18 +314,7 @@ void ProxyParent(const struct InfoChild* infoChilds, size_t nChilds)
             exit(EXIT_FAILURE);
         }
 
-        if (!WIFEXITED(status_child)) {
-            fprintf(stderr, "Warning maybe loss data. ");
-
-            fprintf(stderr, "Child with number [%zu] ",
-                    infoChilds[i_child].numChild);
-
-            fprintf(stderr, "with pid [%d] exit not success ",
-                    infoChilds[i_child].pid_child);
-
-            fprintf(stderr, "with exit status == %d\n",
-                    WEXITSTATUS(status_child));
-        }
+        AnalizeStatusChild(status_child, &infoChilds[i_child]);
     }
 }
 
@@ -379,6 +369,21 @@ void WriteFromBuffer(struct InfoLink* IL)
     }
 }
 
+void AnalizeStatusChild(int status, const struct InfoChild* infoChild)
+{
+    assert(infoChild);
+
+    if (WIFEXITED(status) && WEXITSTATUS(status) == EXIT_SUCCESS)
+        return;
+
+    fprintf(stderr, "Warning maybe loss data\n");
+    fprintf(stderr, "Child with number [%zu] ",        infoChild->numChild);
+    fprintf(stderr, "with pid [%d] exit not success ", infoChild->pid_child);
+    fprintf(stderr, "with exit status == %d\n", WEXITSTATUS(status));
+
+    if (WIFSIGNALED(status))
+        fprintf(stderr, "Killed by signal %d\n", WTERMSIG(status));
+}
 
 
 size_t CountSizeBuffer(size_t base_size, size_t iChild, size_t nChild)
@@ -464,6 +469,7 @@ void CloseRedundantFdPipes_Child(struct InfoChild* infoChild)
 
 
 // Shell funcs {
+
 void DetectDeathParent(pid_t pid_parent, int signal)
 {
     int ret = prctl(PR_SET_PDEATHSIG, signal);
@@ -476,6 +482,7 @@ void DetectDeathParent(pid_t pid_parent, int signal)
         exit(EXIT_FAILURE);
     }
 }
+
 // } Shell funcs
 
 
