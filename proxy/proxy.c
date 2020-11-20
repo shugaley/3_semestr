@@ -57,7 +57,6 @@ void CloseRedundantFdPipes_Child (struct InfoChild* infoChild);
 // } Work with fd pipe
 
 // Shell funcs {
-pid_t Fork();
 void DetectDeathParent(pid_t pid_parent, int signal);
 // } Shell funcs
 
