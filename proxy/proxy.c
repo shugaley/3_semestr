@@ -92,7 +92,9 @@ void ProxyChilds(const char* path_input, size_t nChilds)
                 CloseRedundantFdPipes_Child(&infoChilds[jChild]);
             free(infoChilds);
             CloseRedundantFdPipes_Child(&infoChildCur);
-            break;
+
+            ProxyChild(path_input, &infoChildCur);
+            exit(EXIT_SUCCESS);
 
         default:
             infoChildCur.pid_child = ret_fork;
@@ -101,21 +103,15 @@ void ProxyChilds(const char* path_input, size_t nChilds)
         }
     }
 
-    if (isChild) {
-        ProxyChild(path_input, &infoChildCur);
-        exit(EXIT_SUCCESS);
+    errno = 0;
+    int ret = close(infoChilds[0].fd_from_parent[1]);
+    if (ret < 0) {
+        perror("Error close");
+        exit(EXIT_FAILURE);
     }
-    else {
-        errno = 0;
-        int ret = close(infoChilds[0].fd_from_parent[1]);
-        if (ret < 0) {
-            perror("Error close");
-            exit(EXIT_FAILURE);
-        }
-        infoChilds[0].fd_from_parent[1] = -1;
+    infoChilds[0].fd_from_parent[1] = -1;
 
-        ProxyParent(infoChilds, nChilds);
-    }
+    ProxyParent(infoChilds, nChilds);
 
     free(infoChilds);
 }
@@ -218,14 +214,15 @@ void ProxyParent(const struct InfoChild* infoChilds, size_t nChilds)
         IL[i_link].size_full  = 0;
     }
 
-    struct pollfd* fdpoll_writers =
-            (struct pollfd*)calloc(nLinks, sizeof(*fdpoll_writers));
-    struct pollfd* fdpoll_readers =
-            (struct pollfd*)calloc(nLinks, sizeof(*fdpoll_readers));
 
     size_t i_alive_child = 0;
     while (i_alive_child < nChilds) {
         //prepare poll
+        struct pollfd* fdpoll_writers =
+                (struct pollfd*)calloc(nLinks, sizeof(*fdpoll_writers));
+        struct pollfd* fdpoll_readers =
+                (struct pollfd*)calloc(nLinks, sizeof(*fdpoll_readers));
+
         for (size_t i_link = i_alive_child; i_link < nLinks; i_link++) {
 
             fdpoll_writers[i_link].fd = IL[i_link].fd_writer;
@@ -245,7 +242,7 @@ void ProxyParent(const struct InfoChild* infoChilds, size_t nChilds)
             exit(EXIT_FAILURE);
         }
         errno = 0;
-        int ret_poll_readers = poll(fdpoll_readers, nLinks, 0);
+        int ret_poll_readers = poll(fdpoll_readers, nLinks, -1);
         if (ret_poll_readers < 0) {
             perror("Error pool");
             exit(EXIT_FAILURE);
@@ -297,9 +294,9 @@ void ProxyParent(const struct InfoChild* infoChilds, size_t nChilds)
                 i_alive_child++;
             }
         }
+        free(fdpoll_writers);
+        free(fdpoll_readers);
     }
-    free(fdpoll_writers);
-    free(fdpoll_readers);
 
     for (size_t i_link = 0; i_link < nLinks; i_link++)
         free(IL[i_link].buffer);
