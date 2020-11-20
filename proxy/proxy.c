@@ -58,6 +58,7 @@ void CloseRedundantFdPipes_Child (struct InfoChild* infoChild);
 
 // Shell funcs {
 pid_t Fork();
+void DetectDeathParent(pid_t pid_parent, int signal);
 // } Shell funcs
 
 void DumpFd(struct InfoChild* infoChild);
@@ -75,17 +76,25 @@ void ProxyChilds(const char* path_input, size_t nChilds)
         infoChildCur.numChild  = iChild;
         MakeConnectionPipes(&infoChildCur);
 
-        //Fork
-        pid_t ret_fork = Fork();
-        if (ret_fork == 0) {
+        pid_t pid_parent = getpid();
+        pid_t ret_fork = 0;
+
+        switch(ret_fork = fork()) {
+        case -1:
+            perror("Error fork");
+            exit(EXIT_FAILURE);
+
+        case 0:
             isChild = true;
+            DetectDeathParent(pid_parent, SIGTERM);
+
             for (size_t jChild = 0; jChild < infoChildCur.numChild; jChild++)
                 CloseRedundantFdPipes_Child(&infoChilds[jChild]);
             free(infoChilds);
             CloseRedundantFdPipes_Child(&infoChildCur);
-        }
+            break;
 
-        if (!isChild) {
+        default:
             infoChildCur.pid_child = ret_fork;
             CloseRedundantFdPipes_Parent(&infoChildCur);
             infoChilds[iChild] = infoChildCur;
@@ -456,34 +465,18 @@ void CloseRedundantFdPipes_Child(struct InfoChild* infoChild)
 
 
 // Shell funcs {
-
-pid_t Fork()
+void DetectDeathParent(pid_t pid_parent, int signal)
 {
-    pid_t pid_parent = getpid();
-
-    errno = 0;
-    pid_t ret_fork = fork();
-    if (ret_fork < -1) {
-        perror("Error fork()");
+    int ret = prctl(PR_SET_PDEATHSIG, signal);
+    if (ret < 0) {
+        perror("Error ret()");
         exit(EXIT_FAILURE);
     }
-
-    if (ret_fork == 0) {
-        int ret = prctl(PR_SET_PDEATHSIG, SIGTERM);
-        if (ret < 0) {
-            perror("Error ret()");
-            //TODO kill childs
-            exit(EXIT_FAILURE);
-        }
-        if (pid_parent != getppid()) {
-            perror("Error parent process");
-            exit(EXIT_FAILURE);
-        }
+    if (pid_parent != getppid()) {
+        perror("Error parent process");
+        exit(EXIT_FAILURE);
     }
-
-    return ret_fork;
 }
-
 // } Shell funcs
 
 
