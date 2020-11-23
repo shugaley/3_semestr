@@ -20,8 +20,8 @@
 const int BASE_SIZE_BUFFER = 1024;
 
 struct InfoLink {
-    int    fd_writer;
     int    fd_reader;
+    int    fd_writer;
 
     char*  buffer;
     char*  buffer_end;
@@ -67,11 +67,11 @@ void DumpFd(struct InfoChild* infoChild);
 
 void ProxyChilds(const char* path_input, size_t nChilds)
 {
-    struct InfoChild* infoChilds = (struct InfoChild*)calloc(nChilds * 2,
-                                                             sizeof(*infoChilds));
-    bool isChild = false;
+    struct InfoChild* infoChilds =
+            (struct InfoChild*)calloc(nChilds * 2, sizeof(*infoChilds));
+
     struct InfoChild infoChildCur = {};
-    for (size_t iChild = 0; iChild < nChilds && !isChild; iChild++) {
+    for (size_t iChild = 0; iChild < nChilds; iChild++) {
 
         infoChildCur.numChild  = iChild;
         MakeConnectionPipes(&infoChildCur);
@@ -85,7 +85,6 @@ void ProxyChilds(const char* path_input, size_t nChilds)
             exit(EXIT_FAILURE);
 
         case 0:
-            isChild = true;
             DetectDeathParent(pid_parent, SIGTERM);
 
             for (size_t jChild = 0; jChild < infoChildCur.numChild; jChild++)
@@ -158,7 +157,8 @@ void ProxyChild(const char* path_input, struct InfoChild* infoChild)
     ssize_t ret_splice = -1;
     while (ret_splice) {
         errno = 0;
-        ret_splice = splice(fd_reader, NULL, fd_writer, NULL, PIPE_BUF, SPLICE_F_MOVE);
+        ret_splice = splice(fd_reader, NULL, fd_writer, NULL,
+                            PIPE_BUF, SPLICE_F_MOVE);
         if (ret_splice < 0) {
             perror("Error splice");
             exit(EXIT_FAILURE);
@@ -191,15 +191,16 @@ void ProxyParent(const struct InfoChild* infoChilds, size_t nChilds)
     //Init IL[i_link]
     for (size_t i_link = 0; i_link < nLinks; i_link++) {
 
-        IL[i_link].fd_writer = infoChilds[i_link].fd_to_parent[0];
+        IL[i_link].fd_reader = infoChilds[i_link].fd_to_parent[0];
 
         if (i_link == nLinks - 1)
-            IL[i_link].fd_reader = STDOUT_FILENO;
+            IL[i_link].fd_writer = STDOUT_FILENO;
         else
-            IL[i_link].fd_reader = infoChilds[i_link + 1].fd_from_parent[1];
+            IL[i_link].fd_writer = infoChilds[i_link + 1].fd_from_parent[1];
 
         size_t size_buffer = CountSizeBuffer(BASE_SIZE_BUFFER, i_link, nChilds);
-        IL[i_link].buffer = (char*)calloc(size_buffer, sizeof(*IL[i_link].buffer));
+        IL[i_link].buffer =
+                (char*)calloc(size_buffer, sizeof(*IL[i_link].buffer));
         if (IL[i_link].buffer == NULL) {
             perror("Error calloc");
             exit(EXIT_FAILURE);
@@ -207,8 +208,8 @@ void ProxyParent(const struct InfoChild* infoChilds, size_t nChilds)
 
         IL[i_link].buffer_end = IL[i_link].buffer + size_buffer;
 
-        IL[i_link].cur_read = IL[i_link].buffer;
-        IL[i_link].cur_write  = IL[i_link].buffer;
+        IL[i_link].cur_read  = IL[i_link].buffer;
+        IL[i_link].cur_write = IL[i_link].buffer;
 
         IL[i_link].size_empty = size_buffer;
         IL[i_link].size_full  = 0;
@@ -217,66 +218,52 @@ void ProxyParent(const struct InfoChild* infoChilds, size_t nChilds)
 
     size_t i_alive_child = 0;
     while (i_alive_child < nChilds) {
-        //prepare poll
-        struct pollfd* fdpoll_writers =
-                (struct pollfd*)calloc(nLinks, sizeof(*fdpoll_writers));
-        struct pollfd* fdpoll_readers =
-                (struct pollfd*)calloc(nLinks, sizeof(*fdpoll_readers));
+        //prepare select
+        fd_set fd_readers, fd_writers;
+        FD_ZERO(&fd_readers);
+        FD_ZERO(&fd_writers);
 
+        size_t maxfd = 0;
         for (size_t i_link = i_alive_child; i_link < nLinks; i_link++) {
 
-            fdpoll_writers[i_link].fd = IL[i_link].fd_writer;
-            fdpoll_writers[i_link].events = POLLIN;
-            fdpoll_writers[i_link].revents = 0;
+            if (IL[i_link].fd_reader != -1 && IL[i_link].size_empty > 0) {
+                FD_SET(IL[i_link].fd_reader, &fd_readers);
+                if(IL[i_link].fd_reader > maxfd)
+                    maxfd = IL[i_link].fd_reader;
+            }
 
-            fdpoll_readers[i_link].fd     = IL[i_link].fd_reader;
-            fdpoll_readers[i_link].events = POLLOUT;
-            fdpoll_writers[i_link].revents = 0;
+            if (IL[i_link].fd_writer != -1 && IL[i_link].size_full > 0) {
+                FD_SET(IL[i_link].fd_writer, &fd_writers);
+                if(IL[i_link].fd_writer > maxfd)
+                    maxfd = IL[i_link].fd_writer;
+            }
         }
 
-        //poll
+        //select
         errno = 0;
-        int ret_poll_writers = poll(fdpoll_writers, nLinks, 0);
-        if (ret_poll_writers < 0) {
-            perror("Error pool");
-            exit(EXIT_FAILURE);
-        }
-        errno = 0;
-        int ret_poll_readers = poll(fdpoll_readers, nLinks, -1);
-        if (ret_poll_readers < 0) {
-            perror("Error pool");
+        int ret_select = select(maxfd + 1, &fd_readers, &fd_writers, NULL, NULL);
+        if (ret_select < 0) {
+            perror("Error select");
             exit(EXIT_FAILURE);
         }
 
         //read & write
         for (size_t i_link = i_alive_child; i_link < nLinks; i_link++) {
-            //Closed Child Writer
-            bool isPipeClosed_ChildWriter = fdpoll_writers[i_link].revents == POLLHUP;
-            if (isPipeClosed_ChildWriter) {
-                errno = 0;
-                int ret = close(IL[i_link].fd_writer);
-                if (ret < 0) {
-                    perror("Error close");
-                    exit(EXIT_FAILURE);
-                }
-                IL[i_link].fd_writer = -1;
-            }
 
             //Read to buffer
-            bool isCanWrite = fdpoll_writers[i_link].revents & POLLIN;
+            bool isCanRead = FD_ISSET(IL[i_link].fd_reader, &fd_readers);
 
-            if (isCanWrite && IL[i_link].size_empty > 0)
+            if (isCanRead && IL[i_link].size_empty > 0)
                 ReadToBuffer(&IL[i_link]);
 
             //Write from buffer
-            bool isCanRead = fdpoll_readers[i_link].revents ==
-                             fdpoll_readers[i_link].events;
+            bool isCanWrite = FD_ISSET(IL[i_link].fd_writer, &fd_writers);
 
-            if (isCanRead && IL[i_link].size_full > 0)
+            if (isCanWrite && IL[i_link].size_full > 0)
                 WriteFromBuffer(&IL[i_link]);
 
             //Close Pipe to ChildReader
-            if (IL[i_link].fd_writer == -1 && IL[i_link].size_full == 0) {
+            if (IL[i_link].fd_reader == -1 && IL[i_link].size_full == 0) {
 
                 if (i_link != i_alive_child) {
                     perror("Child died");
@@ -284,18 +271,16 @@ void ProxyParent(const struct InfoChild* infoChilds, size_t nChilds)
                 }
 
                 errno = 0;
-                int ret = close(IL[i_link].fd_reader);
+                int ret = close(IL[i_link].fd_writer);
                 if (ret < 0) {
                     perror("Error close");
                     exit(EXIT_FAILURE);
                 }
-                IL[i_link].fd_reader = -1;
+                IL[i_link].fd_writer = -1;
 
                 i_alive_child++;
             }
         }
-        free(fdpoll_writers);
-        free(fdpoll_readers);
     }
 
     for (size_t i_link = 0; i_link < nLinks; i_link++)
@@ -316,15 +301,22 @@ void ProxyParent(const struct InfoChild* infoChilds, size_t nChilds)
 }
 
 
-void  ReadToBuffer(struct InfoLink* IL)
+void ReadToBuffer(struct InfoLink* IL)
 {
     assert(IL);
 
     errno = 0;
-    ssize_t ret_read = read(IL->fd_writer, IL->cur_read, IL->size_empty);
+    ssize_t ret_read = read(IL->fd_reader, IL->cur_read, IL->size_empty);
     if (ret_read < 0) {
         perror("Error read");
         exit(EXIT_FAILURE);
+    }
+
+    //If pipe closed by ChildWriter
+    if (ret_read == 0) {
+        close(IL->fd_reader);
+        IL->fd_reader = -1;
+        return;
     }
 
     if (IL->cur_read >= IL->cur_write)
@@ -347,7 +339,7 @@ void WriteFromBuffer(struct InfoLink* IL)
     assert(IL);
 
     errno = 0;
-    ssize_t ret_write = write(IL->fd_reader, IL->cur_write, IL->size_full);
+    ssize_t ret_write = write(IL->fd_writer, IL->cur_write, IL->size_full);
     if (ret_write < 0) {
         perror("Error write");
         exit(EXIT_FAILURE);
