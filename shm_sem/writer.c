@@ -11,13 +11,11 @@
 #include <fcntl.h>
 #include <unistd.h>
 
-void WriteData(const char* path_input, char* shmaddr, int semid);
+void WriteData(char* shmaddr, int semid);
 
 
-void WriteSharedMemory(const char* path_input)
+void WriteFromSharedMemory()
 {
-    assert(path_input);
-
     errno = 0;
     key_t key = ftok(FTOK_PATHNAME, FTOK_PROJ_ID);
     if (key < 0) {
@@ -28,6 +26,6 @@ void WriteSharedMemory(const char* path_input)
 }
 
 
-void WriteData(const char* path_input, char* shmaddr, int semid)
+void WriteData(char* shmaddr, int semid)
 {
 }

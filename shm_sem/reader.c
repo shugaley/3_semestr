@@ -3,16 +3,19 @@
 
 #include <assert.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/ipc.h>
 #include <sys/sem.h>
+#include <unistd.h>
+
+const size_t SIZE_PAGE_READ = 4096;
+
+void ReadData(const char* path_input, const char* shared_memory, int id_sem);
 
 
-void ReadData(const char* shmaddr, int semid);
-
-
-void ReadSharedMemory ()
+void ReadToSharedMemory(const char* path_input)
 {
     errno = 0;
     key_t key = ftok(FTOK_PATHNAME, FTOK_PROJ_ID);
@@ -49,20 +52,89 @@ void ReadSharedMemory ()
         exit(EXIT_FAILURE);
     }
 
+    AssignSem(id_sem, SEM_WRITE_FROM_SHM, 1);
+
     int id_shm = 0;
     char* shared_memory = ConstructSharedMemory(key, SIZE_SHARED_MEMORY,
                                                 &id_sem);
 
+    // if (reader == 2) current reader is alive
+    // not block writer if reader die
+    struct sembuf sops_DefenceDeadlock[2] = {
+            {SEM_READER,          1, SEM_UNDO},
+            {SEM_WRITE_FROM_SHM, -1, SEM_UNDO},
+    };
+    ret = semop(id_sem, sops_DefenceDeadlock, 2);
+    if (ret < 0) {
+        perror("Error semop");
+        exit(EXIT_FAILURE);
+    }
 
+    // Check that writer exists
+    // Mark that reader is alive
+    struct sembuf sops_WaitingPair[3] = {
+            {SEM_WRITER,  -2, 0},
+            {SEM_WRITER,   2, 0},
+            {SEM_N_ACTIVE, 1, 0},
+    };
+    ret = semop(id_sem, sops_WaitingPair, 3);
+    if (ret < 0) {
+        perror("Error semop");
+        exit(EXIT_FAILURE);
+    }
 
+    ReadData(path_input, shared_memory, id_sem);
 
+    DestructSharedMemory(shared_memory, id_shm);
 
-
+    // Clear semaphores
+    struct sembuf sops_FinishReading[2] = {
+            {SEM_N_ACTIVE, -1, SEM_UNDO},
+            {SEM_READER,   -1, SEM_UNDO},
+    };
+    ret = semop(id_sem, sops_FinishReading, 2);
+    if (ret < 0) {
+        perror("Error semop");
+        exit(EXIT_FAILURE);
+    }
 
 }
 
 
-void ReadData(const char* shmaddr, int semid)
+void ReadData(const char* path_input, const char* shared_memory, int id_sem)
 {
+    assert(path_input);
 
+    int fd_input = open(path_input, O_RDONLY);
+    if (fd_input < 0) {
+        perror("Error open");
+        exit(EXIT_FAILURE);
+    }
+
+    ssize_t ret_read = -1;
+    while(ret_read != 0) {
+        int ret = 0;
+
+        struct sembuf sops_BeforeRead[1] =
+                {SEM_READ_TO_SHM, -1, 0};
+        ret = semop(id_sem, sops_BeforeRead, 1);
+        if (ret < 0) {
+            perror("Error semop");
+            exit(EXIT_FAILURE);
+        }
+
+        ret_read = read(fd_input, (void*)shared_memory, SIZE_PAGE_READ);
+        if (ret_read < 0) {
+            perror("Error read");
+            exit(EXIT_FAILURE);
+        }
+
+        struct sembuf sops_AfterRead[1] =
+                {SEM_READ_TO_SHM, -1, 0};
+        ret = semop(id_sem, sops_AfterRead, 1);
+        if (ret < 0) {
+            perror("Error semop");
+            exit(EXIT_FAILURE);
+        }
+    }
 }
