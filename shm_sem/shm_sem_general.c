@@ -9,16 +9,13 @@
 #include <sys/sem.h>
 #include <sys/shm.h>
 
-static const int SHMGET_SHMFLG = 0666;
-static const int SEMGET_SEMFLG = 0666;
-
 // Shell funcs {
 
 
 char* ConstructSharedMemory(key_t key, size_t size, int* shmid)
 {
     errno = 0;
-    int ret_shmget = shmget(key, size, SHMGET_SHMFLG | IPC_CREAT);
+    int ret_shmget = shmget(key, size, 0666 | IPC_CREAT);
     if (ret_shmget < 0) {
         perror("Error shmget()");
         exit(EXIT_FAILURE);
@@ -58,65 +55,15 @@ void DestructSharedMemory(const char* shmaddr, int shmid)
 }
 
 
-void CreateSemaphores(key_t key, size_t nsops,
-                      const struct SemaphoreData* sem_initData, int* semid)
+void AssignSem(int id_sem, int num_sem, short value)
 {
-    assert(sem_initData);
-
-    errno = 0;
-    int ret_semget = semget(key, nsops, SEMGET_SEMFLG | IPC_CREAT | IPC_EXCL);
-    if (ret_semget < 0 && errno != EEXIST) {
-        perror("Error semget()");
-        exit(EXIT_FAILURE);
-    }
-
-    if (errno == EEXIST) {
-        errno = 0;
-        ret_semget = semget(key, nsops, SEMGET_SEMFLG | IPC_CREAT);
-        if (ret_semget < 0) {
-            perror("Error semget()");
-            exit(EXIT_FAILURE);
-        }
-    }
-    else
-        InitSemaphores(ret_semget, nsops, sem_initData);
-
-    if (semid)
-        *semid = ret_semget;
-}
-
-
-void InitSemaphores(int semid, size_t nsops,
-                    const struct SemaphoreData* sem_initData)
-{
-    assert(sem_initData);
-
-    for(size_t i_sem = 0; i_sem < nsops; i_sem++) {
-        errno = 0;
-        int ret_semctl = semctl(semid, sem_initData[i_sem].num,
-                                SETVAL, sem_initData[i_sem].value);
-        if (ret_semctl < 0) {
-            perror("Error semctl in InitSemaphores");
-            exit(EXIT_FAILURE);
-        }
-    }
-}
-
-
-void Semop(int semid, short num_semaphore, short n, short sem_flg)
-{
-    struct sembuf semaphore = {};
-    semaphore.sem_num = num_semaphore;
-    semaphore.sem_op  = n;
-    semaphore.sem_flg = sem_flg;
-
-    errno = 0;
-    int ret_semop = semop(semid, &semaphore, 1);
-    if (ret_semop < 0) {
-        perror("Error semop");
+    int ret = semctl(id_sem, num_sem, SETVAL, value);
+    if (ret < 0) {
+        perror("Error semctl");
         exit(EXIT_FAILURE);
     }
 }
+
 
 void DumpSemaphores(int semid, size_t nsops, const char* str)
 {
