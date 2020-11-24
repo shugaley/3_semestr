@@ -12,7 +12,7 @@
 
 const size_t SIZE_PAGE_READ = 4096;
 
-void ReadData(const char* path_input, const char* shared_memory, int id_sem);
+void ReadData(const char* path_input, char* shared_memory, int id_sem);
 
 
 void ReadToSharedMemory(const char* path_input)
@@ -32,10 +32,10 @@ void ReadToSharedMemory(const char* path_input)
 
     int ret = 0;
 
-    // Block other reader
+    // Block other readers
     struct sembuf sops_MutexReaders[2] = {
-            {SEM_READER, 0, 0},
-            {SEM_READER, 1, SEM_UNDO}
+            {SEM_READER_EXIST, 0, 0},
+            {SEM_READER_EXIST, 1, SEM_UNDO}
     };
     ret = semop(id_sem, sops_MutexReaders, 2);
     if (ret < 0) {
@@ -56,26 +56,26 @@ void ReadToSharedMemory(const char* path_input)
 
     int id_shm = 0;
     char* shared_memory = ConstructSharedMemory(key, SIZE_SHARED_MEMORY,
-                                                &id_sem);
+                                                &id_shm);
 
     // if (reader == 2) current reader is alive
     // not block writer if reader die
     struct sembuf sops_DefenceDeadlock[2] = {
-            {SEM_READER,          1, SEM_UNDO},
+            {SEM_READER_EXIST,    1, SEM_UNDO},
             {SEM_WRITE_FROM_SHM, -1, SEM_UNDO},
     };
     ret = semop(id_sem, sops_DefenceDeadlock, 2);
     if (ret < 0) {
-        perror("Error semop");
+        perror("Error semop3");
         exit(EXIT_FAILURE);
     }
 
     // Check that writer exists
-    // Mark that reader is alive
+    // Mark  that reader is alive
     struct sembuf sops_WaitingPair[3] = {
-            {SEM_WRITER,  -2, 0},
-            {SEM_WRITER,   2, 0},
-            {SEM_N_ACTIVE, 1, 0},
+            {SEM_WRITER_EXIST, -2, 0},
+            {SEM_WRITER_EXIST,  2, 0},
+            {SEM_N_ACTIVE,      1, SEM_UNDO},
     };
     ret = semop(id_sem, sops_WaitingPair, 3);
     if (ret < 0) {
@@ -85,27 +85,25 @@ void ReadToSharedMemory(const char* path_input)
 
     ReadData(path_input, shared_memory, id_sem);
 
-    DestructSharedMemory(shared_memory, id_shm);
-
     // Clear semaphores
     struct sembuf sops_FinishReading[2] = {
-            {SEM_N_ACTIVE, -1, SEM_UNDO},
-            {SEM_READER,   -1, SEM_UNDO},
+            {SEM_N_ACTIVE,     -1, SEM_UNDO},
+            {SEM_READER_EXIST, -1, SEM_UNDO},
     };
     ret = semop(id_sem, sops_FinishReading, 2);
     if (ret < 0) {
         perror("Error semop");
         exit(EXIT_FAILURE);
     }
-
 }
 
 
-void ReadData(const char* path_input, const char* shared_memory, int id_sem)
+void ReadData(const char* path_input, char* shared_memory, int id_sem)
 {
     assert(path_input);
+    assert(shared_memory);
 
-    int fd_input = open(path_input, O_RDONLY);
+    int fd_input = open(path_input, O_RDONLY | O_NONBLOCK);
     if (fd_input < 0) {
         perror("Error open");
         exit(EXIT_FAILURE);
@@ -123,14 +121,15 @@ void ReadData(const char* path_input, const char* shared_memory, int id_sem)
             exit(EXIT_FAILURE);
         }
 
-        ret_read = read(fd_input, (void*)shared_memory, SIZE_PAGE_READ);
+        ret_read = read(fd_input, shared_memory, SIZE_PAGE_READ);
         if (ret_read < 0) {
             perror("Error read");
             exit(EXIT_FAILURE);
         }
+        *(shared_memory + ret_read) = '\0';
 
         struct sembuf sops_AfterRead[1] =
-                {SEM_READ_TO_SHM, -1, 0};
+                {SEM_WRITE_FROM_SHM, 1, 0};
         ret = semop(id_sem, sops_AfterRead, 1);
         if (ret < 0) {
             perror("Error semop");
