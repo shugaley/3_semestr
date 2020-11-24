@@ -21,47 +21,48 @@ void ReadSharedMemory ()
         exit(EXIT_FAILURE);
     }
 
-    int semid = 0;
-    CreateSemaphores(key, N_SEMAPHORES, SEM_INIT_DATA, &semid);
-    DumpSemaphores(semid, N_SEMAPHORES, "reader begin");
-    Semop(semid, NUM_SEMAPHORES_IS_FREE_READER, -1, SEM_UNDO);
+    int id_sem = semget(key, N_SEMAPHORES, 0666 | IPC_CREAT);
+    if (id_sem < 0) {
+        perror("Error semget");
+        exit(EXIT_FAILURE);
+    }
 
-    int shmid = 0;
-    char* shmaddr = ConstructSharedMemory(key, SIZE_SHARED_MEMORY, &shmid);
+    int ret = 0;
 
-    ReadData(shmaddr, semid);
+    // Block other reader
+    struct sembuf sops_MutexReaders[2] = {
+            {SEM_READER, 0, 0},
+            {SEM_READER, 1, SEM_UNDO}
+    };
+    ret = semop(id_sem, sops_MutexReaders, 2);
+    if (ret < 0) {
+        perror("Error semop");
+        exit(EXIT_FAILURE);
+    }
 
-    DestructSharedMemory(shmaddr, shmid);
-    Semop(semid, NUM_SEMAPHORES_IS_FREE_READER, 1, SEM_UNDO);
+    // Wait end of previous transfer
+    struct sembuf sops_WaitingPrevious[1] =
+            {SEM_N_ACTIVE, 0, 0};
+    ret = semop(id_sem, sops_WaitingPrevious, 1);
+    if (ret < 0) {
+        perror("Error semop");
+        exit(EXIT_FAILURE);
+    }
+
+    int id_shm = 0;
+    char* shared_memory = ConstructSharedMemory(key, SIZE_SHARED_MEMORY,
+                                                &id_sem);
+
+
+
+
+
+
+
 }
 
 
 void ReadData(const char* shmaddr, int semid)
 {
-    assert(shmaddr);
 
-    while(1) {
-        DumpSemaphores(semid, N_SEMAPHORES, "reader 1");
-
-        Semop(semid, NUM_SEMAPHORES_IS_FULL, -1, 0);
-        Semop(semid, NUM_SEMAPHORES_MUTEX,   -1, SEM_UNDO);
-
-        DumpSemaphores(semid, N_SEMAPHORES, "reader 2");
-
-        if(*shmaddr == '\0') {
-            Semop(semid, NUM_SEMAPHORES_MUTEX,    1, SEM_UNDO);
-            Semop(semid, NUM_SEMAPHORES_IS_EMPTY, 1, 0);
-            break;
-        }
-
-        printf("%s", shmaddr);
-        fflush(stdout);
-
-        DumpSemaphores(semid, N_SEMAPHORES, "reader 3");
-
-        Semop(semid, NUM_SEMAPHORES_MUTEX,    1, SEM_UNDO);
-        Semop(semid, NUM_SEMAPHORES_IS_EMPTY, 1, 0);
-
-        DumpSemaphores(semid, N_SEMAPHORES, "reader 4");
-    }
 }
