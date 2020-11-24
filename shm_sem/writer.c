@@ -87,7 +87,7 @@ void WriteFromSharedMemory()
     // Clear semaphores
     struct sembuf sops_FinishWriting[2] = {
             {SEM_N_ACTIVE,     -1, SEM_UNDO},
-            {SEM_WRITER_EXIST, -1, SEM_UNDO},
+            {SEM_WRITER_EXIST, -2, SEM_UNDO},
     };
     ret = semop(id_sem, sops_FinishWriting, 2);
     if (ret < 0) {

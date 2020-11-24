@@ -88,7 +88,7 @@ void ReadToSharedMemory(const char* path_input)
     // Clear semaphores
     struct sembuf sops_FinishReading[2] = {
             {SEM_N_ACTIVE,     -1, SEM_UNDO},
-            {SEM_READER_EXIST, -1, SEM_UNDO},
+            {SEM_READER_EXIST, -2, SEM_UNDO},
     };
     ret = semop(id_sem, sops_FinishReading, 2);
     if (ret < 0) {
