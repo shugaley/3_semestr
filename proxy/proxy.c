@@ -10,7 +10,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/poll.h>
 #include <sys/prctl.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -340,7 +339,7 @@ void WriteFromBuffer(struct InfoLink* IL)
 
     errno = 0;
     ssize_t ret_write = write(IL->fd_writer, IL->cur_write, IL->size_full);
-    if (ret_write < 0) {
+    if (ret_write < 0 && errno != EAGAIN) {
         perror("Error write");
         exit(EXIT_FAILURE);
     }
