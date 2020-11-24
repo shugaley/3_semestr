@@ -45,7 +45,7 @@ void ReadToSharedMemory(const char* path_input)
 
     // Wait end of previous transfer
     struct sembuf sops_WaitingPrevious[1] =
-            {SEM_N_ACTIVE, 0, 0};
+            {SEM_N_ACTIVE_PROC, 0, 0};
     ret = semop(id_sem, sops_WaitingPrevious, 1);
     if (ret < 0) {
         perror("Error semop");
@@ -61,23 +61,22 @@ void ReadToSharedMemory(const char* path_input)
     // if (reader == 2) current reader is alive
     // not block writer if reader die
     struct sembuf sops_DefenceDeadlock[2] = {
-            {SEM_READER_EXIST,    1, SEM_UNDO},
+            {SEM_READER_READY,    1, SEM_UNDO},
             {SEM_WRITE_FROM_SHM, -1, SEM_UNDO},
     };
     ret = semop(id_sem, sops_DefenceDeadlock, 2);
     if (ret < 0) {
-        perror("Error semop3");
+        perror("Error semop");
         exit(EXIT_FAILURE);
     }
 
     // Check that writer exists
     // Mark  that reader is alive
-    struct sembuf sops_WaitingPair[3] = {
-            {SEM_WRITER_EXIST, -2, 0},
-            {SEM_WRITER_EXIST,  2, 0},
-            {SEM_N_ACTIVE,      1, SEM_UNDO},
+    struct sembuf sops_WaitingPair[2] = {
+            {SEM_WRITER_READY, -1, SEM_UNDO},
+            {SEM_N_ACTIVE_PROC, 1, SEM_UNDO},
     };
-    ret = semop(id_sem, sops_WaitingPair, 3);
+    ret = semop(id_sem, sops_WaitingPair, 2);
     if (ret < 0) {
         perror("Error semop");
         exit(EXIT_FAILURE);
@@ -87,8 +86,8 @@ void ReadToSharedMemory(const char* path_input)
 
     // Clear semaphores
     struct sembuf sops_FinishReading[2] = {
-            {SEM_N_ACTIVE,     -1, SEM_UNDO},
-            {SEM_READER_EXIST, -2, SEM_UNDO},
+            {SEM_N_ACTIVE_PROC, -1, SEM_UNDO},
+            {SEM_READER_EXIST,  -1, SEM_UNDO},
     };
     ret = semop(id_sem, sops_FinishReading, 2);
     if (ret < 0) {

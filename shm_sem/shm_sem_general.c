@@ -77,7 +77,7 @@ void DumpSemaphores(int semid, size_t nsops, const char* str)
     }
 
     fprintf(stderr, "SemVal = {");
-    for (size_t i_sem = 0; i_sem < 5; i_sem++)
+    for (size_t i_sem = 0; i_sem < nsops; i_sem++)
         fprintf(stderr, " %d", value_sems[i_sem]);
     fprintf(stderr, "}\n");
 

@@ -14,11 +14,11 @@ static const size_t N_SEMAPHORES = 7;
 enum NumSemaphores {
     SEM_READER_EXIST   = 0,
     SEM_WRITER_EXIST   = 1,
-    SEM_READER_ALIVE   = 2,
-    SEM_WRITER_ALIVE   = 3,
+    SEM_READER_READY   = 2,
+    SEM_WRITER_READY   = 3,
     SEM_READ_TO_SHM    = 4,
     SEM_WRITE_FROM_SHM = 5,
-    SEM_N_ACTIVE       = 6,
+    SEM_N_ACTIVE_PROC  = 6,
 };
 
 
