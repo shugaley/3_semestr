@@ -3,16 +3,17 @@
 
 #include <assert.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/ipc.h>
 #include <sys/sem.h>
+#include <unistd.h>
+
+void ReadData(const char* path_input, char* shared_memory, int id_sem);
 
 
-void ReadData(const char* shmaddr, int semid);
-
-
-void ReadSharedMemory ()
+void ReadToSharedMemory(const char* path_input)
 {
     errno = 0;
     key_t key = ftok(FTOK_PATHNAME, FTOK_PROJ_ID);
@@ -21,47 +22,121 @@ void ReadSharedMemory ()
         exit(EXIT_FAILURE);
     }
 
-    int semid = 0;
-    CreateSemaphores(key, N_SEMAPHORES, SEM_INIT_DATA, &semid);
-    DumpSemaphores(semid, N_SEMAPHORES, "reader begin");
-    Semop(semid, NUM_SEMAPHORES_IS_FREE_READER, -1, SEM_UNDO);
+    int id_sem = semget(key, N_SEMAPHORES, 0666 | IPC_CREAT);
+    if (id_sem < 0) {
+        perror("Error semget");
+        exit(EXIT_FAILURE);
+    }
 
-    int shmid = 0;
-    char* shmaddr = ConstructSharedMemory(key, SIZE_SHARED_MEMORY, &shmid);
+    int ret = 0;
 
-    ReadData(shmaddr, semid);
+    DumpSemaphores(id_sem, N_SEMAPHORES, "Reader begin");
+    // Block other readers
+    struct sembuf sops_MutexReaders[2] = {
+            {SEM_READER_EXIST, 0, 0},
+            {SEM_READER_EXIST, 1, SEM_UNDO}
+    };
+    ret = semop(id_sem, sops_MutexReaders, 2);
+    if (ret < 0) {
+        perror("Error semop");
+        exit(EXIT_FAILURE);
+    }
 
-    DestructSharedMemory(shmaddr, shmid);
-    Semop(semid, NUM_SEMAPHORES_IS_FREE_READER, 1, SEM_UNDO);
+    // Wait end of previous transfer
+    struct sembuf sops_WaitingPrevious[1] =
+            {SEM_N_ACTIVE_PROC, 0, 0};
+    ret = semop(id_sem, sops_WaitingPrevious, 1);
+    if (ret < 0) {
+        perror("Error semop");
+        exit(EXIT_FAILURE);
+    }
+
+    AssignSem(id_sem, SEM_WRITE_FROM_SHM, 1);
+
+    DumpSemaphores(id_sem, N_SEMAPHORES, "Reader after wainting other");
+    // if (reader == 2) current reader is alive
+    // not block writer if reader die
+    struct sembuf sops_DefenceDeadlock[2] = {
+            {SEM_READER_READY,    1, SEM_UNDO},
+            {SEM_WRITE_FROM_SHM, -1, SEM_UNDO},
+    };
+    ret = semop(id_sem, sops_DefenceDeadlock, 2);
+    if (ret < 0) {
+        perror("Error semop");
+        exit(EXIT_FAILURE);
+    }
+
+    DumpSemaphores(id_sem, N_SEMAPHORES, "Reader waiting pair");
+    // Check that writer exists
+    // Mark  that reader is alive
+    struct sembuf sops_WaitingPair[3] = {
+            {SEM_WRITER_READY, -1, 0},
+            {SEM_WRITER_READY,  1, 0},
+            {SEM_N_ACTIVE_PROC, 1, SEM_UNDO},
+    };
+    ret = semop(id_sem, sops_WaitingPair, 3);
+    if (ret < 0) {
+        perror("Error semop");
+        exit(EXIT_FAILURE);
+    }
+
+    int id_shm = 0;
+    char* shared_memory = ConstructSharedMemory(key, SIZE_SHARED_MEMORY,
+                                                &id_shm);
+    ReadData(path_input, shared_memory, id_sem);
+
+    DumpSemaphores(id_sem, N_SEMAPHORES, "reader before clear");
+    // Clear semaphores
+    struct sembuf sops_FinishReading[3] = {
+            {SEM_READER_READY,  -1, SEM_UNDO},
+            {SEM_N_ACTIVE_PROC, -1, SEM_UNDO},
+            {SEM_READER_EXIST,  -1, SEM_UNDO},
+    };
+    ret = semop(id_sem, sops_FinishReading, 3);
+    if (ret < 0) {
+        perror("Error semop");
+        exit(EXIT_FAILURE);
+    }
 }
 
 
-void ReadData(const char* shmaddr, int semid)
+void ReadData(const char* path_input, char* shared_memory, int id_sem)
 {
-    assert(shmaddr);
+    assert(path_input);
+    assert(shared_memory);
 
-    while(1) {
-        DumpSemaphores(semid, N_SEMAPHORES, "reader 1");
+    int fd_input = open(path_input, O_RDONLY | O_NONBLOCK);
+    if (fd_input < 0) {
+        perror("Error open");
+        exit(EXIT_FAILURE);
+    }
 
-        Semop(semid, NUM_SEMAPHORES_IS_FULL, -1, 0);
-        Semop(semid, NUM_SEMAPHORES_MUTEX,   -1, SEM_UNDO);
+    ssize_t n_bytes = -1;
+    while(n_bytes != 0) {
+        int ret = 0;
 
-        DumpSemaphores(semid, N_SEMAPHORES, "reader 2");
-
-        if(*shmaddr == '\0') {
-            Semop(semid, NUM_SEMAPHORES_MUTEX,    1, SEM_UNDO);
-            Semop(semid, NUM_SEMAPHORES_IS_EMPTY, 1, 0);
-            break;
+        struct sembuf sops_BeforeRead[1] =
+                {SEM_READ_TO_SHM, -1, 0};
+        ret = semop(id_sem, sops_BeforeRead, 1);
+        if (ret < 0) {
+            perror("Error semop");
+            exit(EXIT_FAILURE);
         }
 
-        printf("%s", shmaddr);
-        fflush(stdout);
+        n_bytes = read(fd_input, shared_memory + sizeof(n_bytes),
+                       SIZE_SHARED_MEMORY - sizeof(n_bytes));
+        if (n_bytes < 0) {
+            perror("Error read");
+            exit(EXIT_FAILURE);
+        }
+        *(ssize_t*)shared_memory = n_bytes;
 
-        DumpSemaphores(semid, N_SEMAPHORES, "reader 3");
-
-        Semop(semid, NUM_SEMAPHORES_MUTEX,    1, SEM_UNDO);
-        Semop(semid, NUM_SEMAPHORES_IS_EMPTY, 1, 0);
-
-        DumpSemaphores(semid, N_SEMAPHORES, "reader 4");
+        struct sembuf sops_AfterRead[1] =
+                {SEM_WRITE_FROM_SHM, 1, 0};
+        ret = semop(id_sem, sops_AfterRead, 1);
+        if (ret < 0) {
+            perror("Error semop");
+            exit(EXIT_FAILURE);
+        }
     }
 }
