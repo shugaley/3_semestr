@@ -376,7 +376,7 @@ void AnalizeStatusChild(int status, const struct InfoChild* infoChild)
 
 size_t CountSizeBuffer(size_t base_size, size_t iChild, size_t nChild)
 {
-    size_t size = pow(3, (double)(nChild - iChild)) * 1024;
+    size_t size = pow(3, (double)(nChild - iChild)) * base_size;
     return size;
 }
 
