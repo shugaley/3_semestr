@@ -11,7 +11,6 @@
 
 void WriteData(const char* shared_memory, int id_sem);
 
-
 void WriteFromSharedMemory()
 {
     errno = 0;
@@ -28,6 +27,8 @@ void WriteFromSharedMemory()
     }
 
     int ret = 0;
+
+    DumpSemaphores(id_sem, N_SEMAPHORES, "writer begin");
 
     // Block other writers
     struct sembuf sops_MutexWriters[2] = {
@@ -51,10 +52,7 @@ void WriteFromSharedMemory()
 
     AssignSem(id_sem, SEM_READ_TO_SHM, 2);
 
-    int id_shm = 0;
-    char* shared_memory = ConstructSharedMemory(key, SIZE_SHARED_MEMORY,
-                                                &id_shm);
-
+    DumpSemaphores(id_sem, N_SEMAPHORES, "Writer after wainting other");
     // if (writer == 2) current reader is alive
     // not block reader if writer die
     struct sembuf sops_DefenceDeadlock[2] = {
@@ -67,28 +65,35 @@ void WriteFromSharedMemory()
         exit(EXIT_FAILURE);
     }
 
+    DumpSemaphores(id_sem, N_SEMAPHORES, "Writer waiting pair");
     // Check that reader exists
     // Mark  that writer is alive
-    struct sembuf sops_WaitingPair[2] = {
-            {SEM_READER_READY, -1, SEM_UNDO},
+    struct sembuf sops_WaitingPair[3] = {
+            {SEM_READER_READY, -1, 0},
+            {SEM_READER_READY,  1, 0},
             {SEM_N_ACTIVE_PROC, 1, SEM_UNDO},
     };
-    ret = semop(id_sem, sops_WaitingPair, 2);
+    ret = semop(id_sem, sops_WaitingPair, 3);
     if (ret < 0) {
         perror("Error semop");
         exit(EXIT_FAILURE);
     }
 
+    int id_shm = 0;
+    char* shared_memory = ConstructSharedMemory(key, SIZE_SHARED_MEMORY,
+                                                &id_shm);
     WriteData(shared_memory, id_sem);
 
     DestructSharedMemory(shared_memory, id_shm);
 
+    DumpSemaphores(id_sem, N_SEMAPHORES, "writer before clear");
     // Clear semaphores
-    struct sembuf sops_FinishWriting[2] = {
+    struct sembuf sops_FinishWriting[3] = {
+            {SEM_WRITER_READY,  -1, SEM_UNDO},
             {SEM_N_ACTIVE_PROC, -1, SEM_UNDO},
             {SEM_WRITER_EXIST,  -1, SEM_UNDO},
     };
-    ret = semop(id_sem, sops_FinishWriting, 2);
+    ret = semop(id_sem, sops_FinishWriting, 3);
     if (ret < 0) {
         perror("Error semop");
         exit(EXIT_FAILURE);
@@ -100,8 +105,8 @@ void WriteData(const char* shared_memory, int id_sem)
 {
     assert(shared_memory);
 
-    size_t n_bytes_printed = -1;
-    while(n_bytes_printed != 0) {
+    size_t n_bytes = -1;
+    while(n_bytes != 0) {
         int ret = 0;
 
         struct sembuf sops_BeforeWrite[1] =
@@ -112,7 +117,13 @@ void WriteData(const char* shared_memory, int id_sem)
             exit(EXIT_FAILURE);
         }
 
-        printf("%s%zn", shared_memory, &n_bytes_printed);
+        n_bytes = *(ssize_t*)shared_memory;
+        ret = write(STDOUT_FILENO, shared_memory + sizeof(n_bytes), n_bytes);
+        if (ret < 0) {
+            perror("Error write");
+            exit(EXIT_FAILURE);
+        }
+
 
         struct sembuf sops_AfterWrite[1] =
                 {SEM_READ_TO_SHM, 1, 0};
