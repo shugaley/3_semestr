@@ -53,8 +53,8 @@ void WriteFromSharedMemory()
     AssignSem(id_sem, SEM_READ_TO_SHM, 2);
 
     DumpSemaphores(id_sem, N_SEMAPHORES, "Writer after wainting other");
-    // if (writer == 2) current reader is alive
-    // not block reader if writer die
+    // Writer already init SEM_READ_TO_SHM
+    // Not block reader if writer die
     struct sembuf sops_DefenceDeadlock[2] = {
             {SEM_WRITER_READY,  1, SEM_UNDO},
             {SEM_READ_TO_SHM,  -1, SEM_UNDO},
