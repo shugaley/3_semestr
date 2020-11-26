@@ -28,8 +28,6 @@ void WriteFromSharedMemory()
 
     int ret = 0;
 
-    DumpSemaphores(id_sem, N_SEMAPHORES, "writer begin");
-
     // Block other writers
     struct sembuf sops_MutexWriters[2] = {
             {SEM_WRITER_EXIST, 0, 0},
@@ -52,7 +50,6 @@ void WriteFromSharedMemory()
 
     AssignSem(id_sem, SEM_READ_TO_SHM, 2);
 
-    DumpSemaphores(id_sem, N_SEMAPHORES, "Writer after wainting other");
     // Writer already init SEM_READ_TO_SHM
     // Not block reader if writer die
     struct sembuf sops_DefenceDeadlock[2] = {
@@ -65,7 +62,6 @@ void WriteFromSharedMemory()
         exit(EXIT_FAILURE);
     }
 
-    DumpSemaphores(id_sem, N_SEMAPHORES, "Writer waiting pair");
     // Check that reader exists
     // Mark  that writer is alive
     struct sembuf sops_WaitingPair[3] = {
@@ -86,7 +82,6 @@ void WriteFromSharedMemory()
 
     DestructSharedMemory(shared_memory, id_shm);
 
-    DumpSemaphores(id_sem, N_SEMAPHORES, "writer before clear");
     // Clear semaphores
     struct sembuf sops_FinishWriting[3] = {
             {SEM_WRITER_READY,  -1, SEM_UNDO},

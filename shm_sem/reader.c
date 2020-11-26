@@ -30,7 +30,6 @@ void ReadToSharedMemory(const char* path_input)
 
     int ret = 0;
 
-    DumpSemaphores(id_sem, N_SEMAPHORES, "Reader begin");
     // Block other readers
     struct sembuf sops_MutexReaders[2] = {
             {SEM_READER_EXIST, 0, 0},
@@ -53,7 +52,6 @@ void ReadToSharedMemory(const char* path_input)
 
     AssignSem(id_sem, SEM_WRITE_FROM_SHM, 1);
 
-    DumpSemaphores(id_sem, N_SEMAPHORES, "Reader after wainting other");
     // Reader already init SEM_WRITE_FROM_SHM
     // Not block writer if reader die
     struct sembuf sops_DefenceDeadlock[2] = {
@@ -66,7 +64,6 @@ void ReadToSharedMemory(const char* path_input)
         exit(EXIT_FAILURE);
     }
 
-    DumpSemaphores(id_sem, N_SEMAPHORES, "Reader waiting pair");
     // Check that writer exists
     // Mark  that reader is alive
     struct sembuf sops_WaitingPair[3] = {
@@ -85,7 +82,6 @@ void ReadToSharedMemory(const char* path_input)
                                                 &id_shm);
     ReadData(path_input, shared_memory, id_sem);
 
-    DumpSemaphores(id_sem, N_SEMAPHORES, "reader before clear");
     // Clear semaphores
     struct sembuf sops_FinishReading[3] = {
             {SEM_READER_READY,  -1, SEM_UNDO},
