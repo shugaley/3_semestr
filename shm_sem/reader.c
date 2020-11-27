@@ -101,7 +101,7 @@ void ReadData(const char* path_input, char* shared_memory, int id_sem)
     assert(path_input);
     assert(shared_memory);
 
-    int fd_input = open(path_input, O_RDONLY | O_NONBLOCK);
+    int fd_input = open(path_input, O_RDONLY);
     if (fd_input < 0) {
         perror("Error open");
         exit(EXIT_FAILURE);
