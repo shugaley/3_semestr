@@ -198,6 +198,7 @@ void ProxyParent(const struct InfoChild* infoChilds, size_t nChilds)
             IL[i_link].fd_writer = infoChilds[i_link + 1].fd_from_parent[1];
 
         size_t size_buffer = CountSizeBuffer(BASE_SIZE_BUFFER, i_link, nChilds);
+
         IL[i_link].buffer =
                 (char*)calloc(size_buffer, sizeof(*IL[i_link].buffer));
         if (IL[i_link].buffer == NULL) {
@@ -227,12 +228,14 @@ void ProxyParent(const struct InfoChild* infoChilds, size_t nChilds)
 
             if (IL[i_link].fd_reader != -1 && IL[i_link].size_empty > 0) {
                 FD_SET(IL[i_link].fd_reader, &fd_readers);
+
                 if(IL[i_link].fd_reader > maxfd)
                     maxfd = IL[i_link].fd_reader;
             }
 
             if (IL[i_link].fd_writer != -1 && IL[i_link].size_full > 0) {
                 FD_SET(IL[i_link].fd_writer, &fd_writers);
+
                 if(IL[i_link].fd_writer > maxfd)
                     maxfd = IL[i_link].fd_writer;
             }
@@ -241,7 +244,7 @@ void ProxyParent(const struct InfoChild* infoChilds, size_t nChilds)
         //select
         errno = 0;
         int ret_select = select(maxfd + 1, &fd_readers, &fd_writers, NULL, NULL);
-        if (ret_select < 0) {
+        if (ret_select < 0 && errno != EINTR) {
             perror("Error select");
             exit(EXIT_FAILURE);
         }
